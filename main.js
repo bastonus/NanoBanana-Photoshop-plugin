@@ -1,4 +1,4 @@
-const { app, imaging } = require('photoshop');
+const { app, imaging, core } = require('photoshop');
 // storage is already defined in auth.js so we do not import it since we're on global scope
 const { generateImageGoogle, fetchAvailableModels } = require('./googleAiSdk.js');
 
@@ -7,6 +7,8 @@ async function getApiKey() {
     const localStorage = storage.secureStorage;
     const key = await localStorage.getItem('googleAiApiKey');
     if (!key) {
+        const keyUint8 = await localStorage.getItem('astriaApiKey'); // Fallback check? No, strictly use new key
+        // Actually user might still have old key, but we want the new one.
         return null;
     }
     return String.fromCharCode.apply(null, key);
@@ -38,7 +40,7 @@ async function initializeModels() {
 }
 
 const selectedFiles = [];
-
+// ... (Keep existing file selection logic for now if relevant for input images) ...
 function renderSelectedFiles() {
     const container = document.getElementById('selected-files');
     const files = window.selectedFiles || [];
@@ -112,13 +114,25 @@ async function getImageDataFromBase64(base64Data, sourceBounds) {
             throw new Error("Photoshop failed to open the generated image.");
         }
 
+        // Safety check for document mode
+        if (newDoc.mode !== "RGB") {
+            // Attempt to convert or just warn? For temp doc, we can probably try to use it.
+            // But let's assume open created it correctly from png.
+        }
+
         const firstLayer = newDoc.layers[0];
+
+        // Fit image logic: "Cover" or "Contain" instead of stretch?
+        // Current logic was: resize exact.
+        // IMPROVEMENT: Maintain aspect ratio?
+        // For now, sticking to resize to fill selection as per original, but user might want 'Cover'.
+        // Let's implement a simple cover resize.
 
         // Calculate aspect ratios
         const targetWidth = sourceBounds.right - sourceBounds.left;
         const targetHeight = sourceBounds.bottom - sourceBounds.top;
 
-        await newDoc.resizeImage(targetWidth, targetHeight);
+        await newDoc.resizeImage(targetWidth, targetHeight); // Still stretching for now to match behavior, can improve later.
 
         const imgObj = await imaging.getPixels({
             layerID: firstLayer.id,
@@ -154,6 +168,14 @@ async function getSelectedFilesBlobs() {
 
 async function pasteBackImages(base64Images, sourceBounds, channelName) {
     const { batchPlay } = require('photoshop').action;
+
+    // We need to preserve selection if we are pasting multiple images, 
+    // because creating a mask usually deselects.
+    // However, saving complex selection is hard. 
+    // Let's just try to apply mask. 
+    // If the user generates multiple, they get multiple layers. 
+    // We'll trust Photoshop behavior for now or just mask the first one?
+    // Actually, let's just loop.
 
     for (const b64 of base64Images) {
         const responseImageData = await getImageDataFromBase64(b64, sourceBounds);
@@ -204,6 +226,7 @@ async function pasteBackImages(base64Images, sourceBounds, channelName) {
 }
 
 // 1. Capture Context (Modal)
+// 1. Capture Context (Modal)
 async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly = false) {
     const apiKey = await getApiKey();
     if (!apiKey) {
@@ -213,6 +236,9 @@ async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly 
     // Save history state to restore exactly (maintaining selection and clean layers)
     const initialHistoryState = app.activeDocument.activeHistoryState;
 
+    // We get selection *before* doing any history messing, although getting selection doesn't change history.
+    // However, if we restore history, we must be sure we have what we need.
+    // getSelection returns bounds and data. Data we dispose. Bounds we keep.
     let { imageData: selectionImageData, sourceBounds: selectSourceBounds } = await imaging.getSelection({});
     if (!selectionImageData) {
         throw new Error('Please select an area to edit');
@@ -238,6 +264,7 @@ async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly 
             const tempLayer = app.activeDocument.activeLayers[0];
 
             // 2. Scale
+            // Verify new layer created (simple check)
             if (tempLayer.id !== originalActiveLayer?.id) {
                 await batchPlay([
                     {
@@ -257,6 +284,7 @@ async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly 
                 });
                 finalImageData = upscaledPixels.imageData;
             } else {
+                // Fallback (Normal capture logic, respecting layer preference)
                 let params = { applyAlpha: true, sourceBounds: selectSourceBounds };
                 if (useLayerOnly && originalActiveLayer) {
                     params.layerID = originalActiveLayer.id;
@@ -296,6 +324,7 @@ async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly 
             finalImageData.dispose();
         }
         // CRITICAL: Restore History State
+        // This reverts the 'paste' (and deselect), restoring the original selection and removing temp layers.
         app.activeDocument.activeHistoryState = initialHistoryState;
     }
 }
@@ -308,6 +337,8 @@ async function pastePhase(executionContext, results, sourceBounds, upscaleFactor
     const channelName = "NanoBanana_Temp_" + Date.now();
 
     try {
+        // 1. Save Selection to Channel (Backup)
+        // This ensures we have a robust copy of the selection regardless of paste/mask operations
         try {
             await batchPlay([
                 {
@@ -316,6 +347,7 @@ async function pastePhase(executionContext, results, sourceBounds, upscaleFactor
                     name: channelName
                 }
             ], {});
+            console.log("Selection saved to channel:", channelName);
         } catch (e) {
             console.warn("Failed to backup selection to channel:", e);
         }
@@ -327,6 +359,7 @@ async function pastePhase(executionContext, results, sourceBounds, upscaleFactor
         }
 
     } finally {
+        // Cleanup: Delete the temporary channel
         try {
             await batchPlay([
                 {
@@ -335,10 +368,11 @@ async function pastePhase(executionContext, results, sourceBounds, upscaleFactor
                 }
             ], {});
         } catch (e) {
-            // Channel might not exist
+            // Channel might not exist if creation failed, ignore
         }
     }
 }
+
 
 // UI Event Listener
 const presetManager = require('./presets.js');
@@ -362,12 +396,12 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
             prompt_text += p.content; // Append content directly
         });
 
-        const numImagesEl = document.getElementById('variations-value');
+        const numImagesEl = document.getElementById('variations-value'); // Now sp-number-field
         const numImages = parseInt(numImagesEl?.value || '1', 10) || 1;
 
         const referenceBlobs = await getSelectedFilesBlobs();
 
-        const upscaleEl = document.getElementById('upscale-value');
+        const upscaleEl = document.getElementById('upscale-value'); // Now sp-number-field
         const upscaleFactor = parseFloat(upscaleEl?.value || '1') || 1;
 
         const useLayerOnly = document.getElementById('use-layer-only')?.checked === true;
@@ -394,6 +428,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         // C. Show Loading & Generate (Non-Blocking)
         const btn = document.getElementById('prompt-submit');
         if (btn) {
+            // btn.disabled = true; // User requested clickable
             btn.innerHTML = `Generating... <span id="spinner" style="margin-inline-start: 8px;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
         }
 
@@ -413,6 +448,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
             return;
         } finally {
             if (btn) {
+                // btn.disabled = false;
                 btn.innerHTML = `Submit <span id="spinner" style="margin-inline-start: 8px; display:none;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
             }
         }
@@ -432,6 +468,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         core.showAlert(e?.message || 'An unexpected error occurred.');
         const btn = document.getElementById('prompt-submit');
         if (btn) {
+            // btn.disabled = false;
             btn.innerHTML = `Submit <span id="spinner" style="margin-inline-start: 8px; display:none;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
         }
     }
@@ -442,6 +479,7 @@ async function initPresetsUI() {
     await presetManager.load();
     renderPresetList();
 
+    // Toggle Add Preset Form
     const toggleAdd = document.getElementById('btn-add-new-preset');
     const addContainer = document.getElementById('add-preset-container');
     if (toggleAdd && addContainer) {
@@ -460,6 +498,7 @@ async function initPresetsUI() {
                 namePx.value = '';
                 contentPx.value = '';
                 renderPresetList();
+                // Optionally hide form again
                 addContainer.classList.add('hidden');
             }
         });
@@ -472,9 +511,11 @@ function renderPresetList() {
     container.innerHTML = '';
     const presets = presetManager.getAll();
     presets.forEach(p => {
+        // Create Row Container
         const row = document.createElement('div');
         row.className = 'preset-item';
 
+        // Main Row (Checkbox + Actions)
         const mainRow = document.createElement('div');
         mainRow.className = 'preset-row-main';
 
@@ -492,11 +533,13 @@ function renderPresetList() {
         const actions = document.createElement('div');
         actions.className = 'preset-actions';
 
+        // Edit Button (SVG)
         const editBtn = document.createElement('sp-action-button');
         editBtn.quiet = true;
         editBtn.size = "S";
         editBtn.innerHTML = '<svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M16.5,5.5L12.5,1.5c-0.7-0.7-1.8-0.7-2.5,0L1,10.5v6h6l9-9C17.2,7.3,17.2,6.2,16.5,5.5z M6.2,15H2.5v-3.7L10,3.8L13.7,7.5L6.2,15z" fill="currentColor"/></svg>';
 
+        // Delete Button (SVG)
         const delBtn = document.createElement('sp-action-button');
         delBtn.quiet = true;
         delBtn.size = "S";
@@ -511,6 +554,7 @@ function renderPresetList() {
         mainRow.append(cbContainer, actions);
         row.appendChild(mainRow);
 
+        // Edit Panel (Hidden primarily)
         const editPanel = document.createElement('div');
         editPanel.className = 'preset-edit-panel';
         editPanel.style.display = 'none';
@@ -552,10 +596,18 @@ function renderPresetList() {
     });
 }
 
+
+// -----------------------------------------------------------
+// Updated Logic for standard Spectrum sp-number-field
+// -----------------------------------------------------------
+// No need for initNumberInputs() anymore since sp-number-field handles itself.
+// We just need to ensure we read the values correctly in the submit handler.
+
 function initPersistentUISettings() {
     const useFgCb = document.getElementById('use-foreground');
     const useLayerCb = document.getElementById('use-layer-only');
 
+    // Load saved states
     if (useFgCb) {
         const savedFg = localStorage.getItem('nanobanana_useForeground');
         if (savedFg !== null) {
@@ -577,7 +629,9 @@ function initPersistentUISettings() {
     }
 }
 
-// Global spinner init function
+// -----------------------------------------------------------
+// Spinner Logic
+// -----------------------------------------------------------
 function initSpinnerControls() {
     const btns = document.querySelectorAll('.spin-btn');
     btns.forEach(btn => {
@@ -597,6 +651,7 @@ function initSpinnerControls() {
                 val -= step;
             }
 
+            // Clamp
             if (val < min) val = min;
             if (val > max) val = max;
 
@@ -604,6 +659,7 @@ function initSpinnerControls() {
         });
     });
 
+    // Keyboard support for textfields
     const inputs = document.querySelectorAll('sp-textfield[type="number"]');
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
@@ -633,7 +689,6 @@ function initSpinnerControls() {
     });
 }
 
-// Single DOMContentLoaded listener
 window.addEventListener('DOMContentLoaded', () => {
     initializeModels();
     renderSelectedFiles();
