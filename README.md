@@ -87,12 +87,21 @@ Nano Banana is designed with **Privacy** and **Performance** in mind. We do not 
     -   Internet connection (for API calls).
 
 2.  **Installation Steps**:
-    -   **Option A (CCX)**: If you have the `.ccx` file, simply double-click it to install via the Creative Cloud Desktop app.
-    -   **Option B (Developer Mode)**:
-        1.  Download the UXP Developer Tool from Adobe.
-        2.  Click "Add Plugin" and select the `manifest.json` file in the `NanoBananaPluginPS` folder.
-        3.  Click "Load".
-        4.  Open Photoshop, and the plugin will appear in the `Plugins` menu.
+    
+    Simply copy the entire `NanoBananaPluginPS` folder and paste it into your Photoshop **Plug-ins** directory:
+
+    -   **Windows**:
+        ```
+        C:\Program Files\Adobe\Adobe Photoshop [Version]\Plug-ins\
+        ```
+    -   **macOS**:
+        ```
+        /Applications/Adobe Photoshop [Version]/Plug-ins/
+        ```
+
+    *Note: Replace `[Version]` with your actual Photoshop version (e.g., "2024", "2025").*
+
+    After restarting Photoshop, the plugin will be available in the **Plugins** menu.
 
 ---
 
