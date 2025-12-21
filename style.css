@@ -76,11 +76,12 @@ button {
 
 /* Section Grouping */
 .section-group {
-  background-color: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* background-color: rgba(255, 255, 255, 0.02); */
+  /* border: 1px solid rgba(255, 255, 255, 0.05); */
   /* Very subtle border */
-  border-radius: 6px;
-  padding: 12px;
+  /* border-radius: 6px; */
+  padding: 0;
+  /* Removing padding too as box is gone, usually cleaner without box padding */
   margin-bottom: 16px;
 }
 
@@ -140,6 +141,15 @@ button {
 .preset-item:hover .preset-actions {
   opacity: 1;
 }
+
+.chevron-open {
+  transform: rotate(90deg);
+}
+
+.clickable {
+  cursor: pointer;
+}
+
 
 .file-item {
   display: flex;

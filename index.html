@@ -28,6 +28,7 @@
         <div class="flex-row">
           <sp-textfield id="api-key-input" name="apiKey" placeholder="AIza..." style="flex:1;"></sp-textfield>
           <sp-button id="submit-auth" variant="cta">Save</sp-button>
+          <sp-button id="cancel-auth" variant="secondary" style="display:none;">Cancel</sp-button>
         </div>
       </form>
     </section>
@@ -48,9 +49,15 @@
 
           <!-- Presets -->
           <div id="preset-section" style="margin: 12px 0;">
-            <div class="flex-row-between mb-xs">
+            <div class="flex-row-between mb-xs clickable" id="preset-header-toggle">
               <div class="flex-row">
-                <sp-field-label style="margin:0;">Presets</sp-field-label>
+                <div id="preset-chevron" style="transition: transform 0.2s; display: flex; align-items: center;">
+                  <svg viewBox="0 0 10 10" width="10" height="10">
+                    <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" stroke-width="1.5"
+                      stroke-linecap="round" />
+                  </svg>
+                </div>
+                <sp-field-label style="margin:0; cursor: pointer;">Presets</sp-field-label>
                 <sp-icon name="ui:HelpMedium" size="s" title="Presets are appended to your main prompt."></sp-icon>
               </div>
               <!-- Add Preset Button -->
@@ -63,41 +70,104 @@
               </sp-action-button>
             </div>
 
-            <!-- Presets List -->
-            <div id="preset-list"></div>
+            <!-- Collabsible Content Wrapper -->
+            <div id="preset-content-wrapper">
 
-            <!-- Add Preset Form (Spectrum Style) -->
-            <div id="add-preset-section" class="mt-m hidden">
-              <div class="flex-col" id="add-preset-container"
-                style="gap: 8px; border: 1px solid var(--uxp-host-border-color); padding: 8px; border-radius: 4px;">
-                <sp-textfield id="new-preset-name" placeholder="Name" class="w-full"></sp-textfield>
-                <sp-textarea id="new-preset-content" placeholder="Content..."
-                  style="width: 100%; height: 60px;"></sp-textarea>
-                <div class="flex-row" style="justify-content: flex-end;">
-                  <sp-button id="add-preset-btn" variant="cta" size="s">Save</sp-button>
+              <!-- Presets List -->
+              <div id="preset-list"></div>
+
+              <!-- Add Preset Form (Spectrum Style) -->
+              <div id="add-preset-section" class="mt-m hidden">
+                <div class="flex-col" id="add-preset-container" style="gap: 8px; padding: 0;">
+                  <sp-textfield id="new-preset-name" placeholder="Name" class="w-full"></sp-textfield>
+                  <sp-textarea id="new-preset-content" placeholder="Content..."
+                    style="width: 100%; height: 60px;"></sp-textarea>
+                  <div class="flex-row" style="justify-content: flex-end;">
+                    <sp-button id="add-preset-btn" variant="cta" size="s">Save</sp-button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Reference Images -->
-          <div class="control-group mt-s">
-            <div class="flex-row-between mb-xs">
+
+
+          <!-- Context Settings (Expandable) -->
+          <div id="context-section" style="margin-top: 12px;">
+            <div class="flex-row-between mb-xs clickable" id="context-header-toggle">
               <div class="flex-row">
-                <sp-field-label for="reference-images" style="margin: 0;">Reference Image</sp-field-label>
-                <sp-icon name="ui:HelpMedium" size="s" title="Upload an image to guide structure/style."></sp-icon>
+                <div id="context-chevron" style="transition: transform 0.2s; display: flex; align-items: center;">
+                  <svg viewBox="0 0 10 10" width="10" height="10">
+                    <path d="M3 1 L7 5 L3 9" fill="none" stroke="currentColor" stroke-width="1.5"
+                      stroke-linecap="round" />
+                  </svg>
+                </div>
+                <sp-field-label style="margin:0; cursor: pointer;">Context Settings</sp-field-label>
               </div>
-              <sp-button id="reference-images" variant="secondary" size="s">Browse</sp-button>
             </div>
-            <div id="selected-files" aria-label="Selected reference files" style="margin-top:4px;"></div>
+
+            <div id="context-content-wrapper" class="hidden">
+              <div class="section-group settings-group" style="padding-top: 4px;">
+                <div class="flex-col" style="width: 100%;">
+                  <!-- Checkboxes (Moved to top) -->
+                  <div class="settings-row flex-col" style="gap: 8px; align-items: flex-start; margin-bottom: 20px;">
+                    <sp-checkbox id="use-foreground" name="useForeground">Use Foreground Color</sp-checkbox>
+                    <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
+                  </div>
+                  <!-- Reference Images (Moved here) -->
+                  <div class="control-group mt-s" style="margin-bottom: 20px;">
+                    <div class="flex-row-between mb-xs">
+                      <div class="flex-row">
+                        <sp-field-label for="reference-images" style="margin: 0;">Reference Image</sp-field-label>
+                        <sp-icon name="ui:HelpMedium" size="s"
+                          title="Upload an image to guide structure/style."></sp-icon>
+                      </div>
+                      <sp-button id="reference-images" variant="secondary" size="s">Browse</sp-button>
+                    </div>
+                    <div id="selected-files" aria-label="Selected reference files" style="margin-top:4px;"></div>
+                  </div>
+
+                  <!-- Upscale Context -->
+                  <div class="settings-row" style="margin-bottom: 12px;">
+                    <div class="flex-row" style="align-items: center; width: 100%; justify-content: space-between;">
+                      <div class="flex-row" style="margin-right: 12px;">
+                        <sp-field-label style="margin:0;">Upscale</sp-field-label>
+                        <span class="beta-badge" style="margin-left: 4px;">BETA</span>
+                        <sp-icon name="ui:HelpMedium" size="s" title="Surrounding area to consider (1x - 4x)."
+                          style="margin-left: 4px;"></sp-icon>
+                      </div>
+                      <!-- Custom Spinner -->
+                      <div class="number-spinner-wrapper" style="width: 80px;">
+                        <sp-textfield type="number" id="upscale-value" value="1" min="1" max="4" step="0.5"
+                          style="flex:1; text-align: center;"></sp-textfield>
+                        <div class="spinner-btns">
+                          <div class="spin-btn up" data-target="upscale-value" data-step="0.5" data-max="4">
+                            <svg viewBox="0 0 10 10" width="8" height="8">
+                              <path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                          </div>
+                          <div class="spin-btn down" data-target="upscale-value" data-step="0.5" data-min="1">
+                            <svg viewBox="0 0 10 10" width="8" height="8">
+                              <path d="M1 3 L5 7 L9 3" fill="none" stroke="currentColor" stroke-width="1.5" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- GROUP: ACTIONS -->
+        <!-- GROUP: ACTIONS -->
         <div class="section-group action-group flex-row mb-m" style="align-items: flex-end; gap: 12px;">
           <!-- Variations (Custom Spinner) -->
           <div style="flex: 0 0 auto;">
-            <sp-field-label for="variations-value" size="s">Variations</sp-field-label>
             <div class="number-spinner-wrapper">
               <!-- Keep type="number" for native behavior, but we might control it via JS mostly -->
               <sp-textfield type="number" id="variations-value" value="1" min="1" max="8"
@@ -126,48 +196,15 @@
         </div>
 
         <!-- GROUP: MODEL -->
-        <div class="section-group mb-m">
-          <sp-field-label for="model-select" style="margin:0;">Model</sp-field-label>
-          <sp-picker id="model-select-picker" class="w-full" size="m">
+        <div class="section-group mb-m box-padding"
+          style="display: flex; flex-direction: row; align-items: center; justify-content: space-between;">
+          <sp-picker id="model-select-picker" class="w-full" size="m" style="flex: 1; min-width: 0;">
             <sp-menu id="model-select" slot="options"></sp-menu>
           </sp-picker>
         </div>
 
         <!-- GROUP: CONTEXT SETTINGS -->
-        <div class="section-group settings-group">
-          <div class="settings-row">
-            <!-- Upscale Context -->
-            <div class="setting-item flex-1">
-              <div class="flex-row mb-xs">
-                <sp-field-label style="margin:0;">Upscale Context</sp-field-label>
-                <span class="beta-badge">BETA</span>
-                <sp-icon name="ui:HelpMedium" size="s" title="Surrounding area to consider (1x - 4x)."></sp-icon>
-              </div>
-              <!-- Custom Spinner -->
-              <div class="number-spinner-wrapper" style="width: 100%;">
-                <sp-textfield type="number" id="upscale-value" value="1" min="1" max="4" step="0.5"
-                  style="flex:1;"></sp-textfield>
-                <div class="spinner-btns">
-                  <div class="spin-btn up" data-target="upscale-value" data-step="0.5" data-max="4">
-                    <svg viewBox="0 0 10 10" width="8" height="8">
-                      <path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.5" />
-                    </svg>
-                  </div>
-                  <div class="spin-btn down" data-target="upscale-value" data-step="0.5" data-min="1">
-                    <svg viewBox="0 0 10 10" width="8" height="8">
-                      <path d="M1 3 L5 7 L9 3" fill="none" stroke="currentColor" stroke-width="1.5" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
 
-          <div class="settings-row mt-s">
-            <sp-checkbox id="use-foreground" name="useForeground">Use FG Color</sp-checkbox>
-            <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
-          </div>
-        </div>
 
       </form>
     </section>

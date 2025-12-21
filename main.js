@@ -481,11 +481,60 @@ async function initPresetsUI() {
 
     // Toggle Add Preset Form
     const toggleAdd = document.getElementById('btn-add-new-preset');
-    const addContainer = document.getElementById('add-preset-container');
-    if (toggleAdd && addContainer) {
-        toggleAdd.addEventListener('click', () => {
-            addContainer.classList.toggle('hidden');
+    const addSection = document.getElementById('add-preset-section');
+    const presetWrapper = document.getElementById('preset-content-wrapper');
+    const presetChevronIcon = document.getElementById('preset-chevron');
+
+    if (toggleAdd && addSection) {
+        toggleAdd.addEventListener('click', (e) => {
+            e.stopPropagation(); // prevent header toggle
+
+            // If section is collapsed, expand it first
+            if (presetWrapper && presetWrapper.classList.contains('hidden')) {
+                presetWrapper.classList.remove('hidden');
+                if (presetChevronIcon) presetChevronIcon.classList.add('chevron-open');
+            }
+
+            addSection.classList.toggle('hidden');
+            // If we just opened it, focus the name field? 
+            if (!addSection.classList.contains('hidden')) {
+                setTimeout(() => document.getElementById('new-preset-name')?.focus(), 50);
+            }
         });
+    }
+
+    // Toggle Presets Section
+    const presetHeaderToggle = document.getElementById('preset-header-toggle');
+    const presetContentWrapper = document.getElementById('preset-content-wrapper');
+    const presetChevron = document.getElementById('preset-chevron');
+
+    if (presetHeaderToggle && presetContentWrapper && presetChevron) {
+        presetHeaderToggle.addEventListener('click', () => {
+            presetContentWrapper.classList.toggle('hidden');
+            presetChevron.classList.toggle('chevron-open');
+        });
+
+        // Initialize: Set chevron to open position if content is visible
+        if (!presetContentWrapper.classList.contains('hidden')) {
+            presetChevron.classList.add('chevron-open');
+        }
+    }
+
+    // Toggle Context Section
+    const contextHeader = document.getElementById('context-header-toggle');
+    const contextWrapper = document.getElementById('context-content-wrapper');
+    const contextChevron = document.getElementById('context-chevron');
+
+    if (contextHeader && contextWrapper && contextChevron) {
+        contextHeader.addEventListener('click', () => {
+            contextWrapper.classList.toggle('hidden');
+            contextChevron.classList.toggle('chevron-open');
+        });
+
+        // Initialize
+        if (!contextWrapper.classList.contains('hidden')) {
+            contextChevron.classList.add('chevron-open');
+        }
     }
 
     const addBtn = document.getElementById('add-preset-btn');
@@ -499,7 +548,7 @@ async function initPresetsUI() {
                 contentPx.value = '';
                 renderPresetList();
                 // Optionally hide form again
-                addContainer.classList.add('hidden');
+                if (addSection) addSection.classList.add('hidden');
             }
         });
     }
@@ -633,6 +682,7 @@ function initPersistentUISettings() {
 // Spinner Logic
 // -----------------------------------------------------------
 function initSpinnerControls() {
+    // 1. Button Controls (Click)
     const btns = document.querySelectorAll('.spin-btn');
     btns.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -644,31 +694,39 @@ function initSpinnerControls() {
             const input = document.getElementById(targetId);
             if (!input) return;
 
-            let val = parseFloat(input.value) || 0;
+            let currentVal = parseFloat(input.value);
+            if (isNaN(currentVal)) currentVal = 0; // Default fallback
+
+            let newVal = currentVal;
             if (btn.classList.contains('up')) {
-                val += step;
+                newVal += step;
             } else {
-                val -= step;
+                newVal -= step;
             }
 
             // Clamp
-            if (val < min) val = min;
-            if (val > max) val = max;
+            if (newVal < min) newVal = min;
+            if (newVal > max) newVal = max;
 
-            input.value = val;
+            // Handle floats (avoid precision errors like 1.5000000001)
+            newVal = Math.round(newVal * 100) / 100;
+
+            input.value = String(newVal);
         });
     });
 
-    // Keyboard support for textfields
+    // 2. Keyboard Support (Arrow Keys)
     const inputs = document.querySelectorAll('sp-textfield[type="number"]');
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                e.preventDefault();
+                e.preventDefault(); // Prevent native cursor move / default increment
+
                 let step = 1;
                 let min = 1;
                 let max = 9999;
 
+                // Specific constraints based on ID
                 if (input.id === 'variations-value') {
                     max = 8;
                 } else if (input.id === 'upscale-value') {
@@ -676,14 +734,21 @@ function initSpinnerControls() {
                     max = 4;
                 }
 
-                let val = parseFloat(input.value) || 0;
-                if (e.key === 'ArrowUp') val += step;
-                else val -= step;
+                let currentVal = parseFloat(input.value);
+                if (isNaN(currentVal)) currentVal = 0;
 
-                if (val < min) val = min;
-                if (val > max) val = max;
+                let newVal = currentVal;
+                if (e.key === 'ArrowUp') newVal += step;
+                else newVal -= step;
 
-                input.value = val;
+                // Clamp
+                if (newVal < min) newVal = min;
+                if (newVal > max) newVal = max;
+
+                // Handle floats
+                newVal = Math.round(newVal * 100) / 100;
+
+                input.value = String(newVal);
             }
         });
     });
