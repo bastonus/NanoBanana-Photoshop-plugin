@@ -88,28 +88,19 @@
     {
       "width": 23,
       "height": 23,
-      "path": "icons/dark.png",
+      "path": "icons/pluginIcon.png",
       "scale": [
         1,
+        1.25,
+        1.5,
         2
       ],
       "theme": [
         "darkest",
         "dark",
-        "medium"
-      ]
-    },
-    {
-      "width": 23,
-      "height": 23,
-      "path": "icons/light.png",
-      "scale": [
-        1,
-        2
-      ],
-      "theme": [
+        "light",
         "lightest",
-        "light"
+        "all"
       ]
     }
   ]
