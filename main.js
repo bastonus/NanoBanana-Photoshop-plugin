@@ -28,16 +28,162 @@ async function initializeModels() {
 
     // Clear existing options
     select.innerHTML = '';
-    // Populate from GOOGLE_MODELS
-    console.log("Populating models:", Object.keys(window.GOOGLE_MODELS));
-    Object.keys(window.GOOGLE_MODELS).forEach((name, index) => {
+
+    // Populate Image Models
+    const imageModels = window.GOOGLE_MODELS || {}; // Currently mixed, but ideally we filter? 
+    // fetchAvailableModels returns {image, text}.
+    // Let's rely on fetchAvailableModels mostly, but fallback to GOOGLE_MODELS.
+
+    Object.keys(imageModels).forEach((name, index) => {
+        // Simple filter to avoid showing text models in Image Gen dropdown if they got mixed in
+        if (name.includes('Gemini') && !name.includes('Image') && !name.includes('Nano Banana')) {
+            // Skip pure text models for Image Gen dropdown unless user wants them?
+            // The requirement is specific: Menu Deroulant for Text Models.
+            // So keep Image Gen dropdown for Image Models.
+        }
+
         const opt = document.createElement('sp-menu-item');
         opt.value = name;
         opt.textContent = name;
-        // Default to Nano Banana Pro or similar if available
         if (name.includes('Nano Banana Pro') || name.includes('Gemini 3 Pro') || (index === 0 && !select.value)) opt.selected = true;
         select.appendChild(opt);
     });
+
+    // Populate Refine Menu (Text Models)
+    initializeRefineMenu();
+}
+
+function initializeRefineMenu() {
+    const refinePicker = document.getElementById('refine-prompt-picker');
+    const refineMenu = document.getElementById('refine-bg-menu');
+
+    if (!refinePicker || !refineMenu) return;
+
+    refineMenu.innerHTML = '';
+    const textModels = window.GOOGLE_TEXT_MODELS || {};
+
+    // Default fallback if empty
+    if (Object.keys(textModels).length === 0) {
+        textModels["Gemini 1.5 Flash"] = "models/gemini-1.5-flash";
+    }
+
+    Object.keys(textModels).forEach((name, index) => {
+        const item = document.createElement('sp-menu-item');
+        item.textContent = name;
+        item.value = name;
+        // Set Gemini 2.0 Flash (latest available) as default, or first item as fallback
+        if (name.includes('2.0') || index === 0) {
+            item.selected = true;
+        }
+        // No click listener, we use picker change event
+        refineMenu.appendChild(item);
+    });
+
+    // Handle Button Click (not picker change)
+    const refineButton = document.getElementById('btn-refine-prompt');
+    if (refineButton) {
+        refineButton.addEventListener('click', async () => {
+            const selectedModel = refinePicker.value;
+            if (selectedModel) {
+                await handleRefinePrompt(selectedModel, refineButton);
+            } else {
+                await core.showAlert("Please select a model from the dropdown first.");
+            }
+        });
+    }
+}
+
+// Helper function to capture selection for refinement (modal)
+async function captureSelectionForRefine(executionContext) {
+    try {
+        const { imageData: selectionImageData, sourceBounds } = await imaging.getSelection({});
+        if (!selectionImageData) {
+            return null; // No selection, will proceed without image
+        }
+
+        // Get pixels from selection
+        const pixels = await imaging.getPixels({
+            applyAlpha: true,
+            sourceBounds: sourceBounds
+        });
+
+        const encodedImage = await imaging.encodeImageData({ "imageData": pixels.imageData });
+        pixels.imageData.dispose();
+        selectionImageData.dispose();
+
+        const uint8 = Uint8Array.from(encodedImage);
+        const imageBlob = new Blob([uint8], { type: 'image/jpeg' });
+
+        return imageBlob;
+    } catch (e) {
+        console.warn("Failed to capture selection for refine:", e);
+        return null;
+    }
+}
+
+async function handleRefinePrompt(modelName, buttonElement) {
+    const promptInput = document.getElementById('prompt-input');
+    if (!promptInput) return;
+
+    const originalPrompt = promptInput.value;
+    if (!originalPrompt.trim()) {
+        await core.showAlert("Please enter a prompt to refine.");
+        return;
+    }
+
+    // Show loading state on button
+    const originalButtonContent = buttonElement.innerHTML;
+    buttonElement.innerHTML = '<sp-progress-circle size="s" indeterminate style="width:12px; height:12px;"></sp-progress-circle>';
+    buttonElement.disabled = true;
+
+    try {
+        const apiKey = await getApiKey();
+        if (!apiKey) throw new Error("Accès refusé. Veuillez configurer votre clé API.");
+
+        // Capture selection image if available
+        let selectionBlob = null;
+        try {
+            selectionBlob = await core.executeAsModal(
+                captureSelectionForRefine,
+                { commandName: "Capturing Selection..." }
+            );
+        } catch (e) {
+            console.warn("No selection available for refine:", e);
+        }
+
+        const systemPrompt = `Refine this prompt into a single, highly detailed image generation prompt. Do not ask questions or provide alternatives. Focus on visual details, atmosphere, lighting, color palette, and composition. Output ONLY the refined prompt, nothing else.
+
+Original prompt: ${originalPrompt}`;
+
+        const result = await generateImageGoogle(apiKey, modelName, systemPrompt, {
+            num_images: 1,
+            input_image_blob: selectionBlob // Send selection if available
+        });
+
+        let refinedText = "";
+        if (typeof result === 'string') {
+            refinedText = result;
+        } else if (result && result.type === 'text') {
+            refinedText = result.data;
+        } else if (Array.isArray(result) && typeof result[0] === 'string' && !result[0].startsWith('iVBOR')) {
+            refinedText = result[0];
+        } else {
+            console.warn("Unexpected result format from refinement:", result);
+            throw new Error("Le modèle n'a pas renvoyé de texte valide.");
+        }
+
+        if (refinedText) {
+            promptInput.value = refinedText;
+        }
+
+    } catch (e) {
+        console.error("Refinement failed:", e);
+        await core.showAlert("Refinement failed: " + e.message);
+    } finally {
+        // Restore button
+        buttonElement.innerHTML = originalButtonContent;
+        buttonElement.disabled = false;
+    }
 }
 
 const selectedFiles = [];
@@ -180,7 +326,19 @@ async function pasteBackImages(base64Images, sourceBounds, channelName) {
 
     for (const b64 of base64Images) {
         const responseImageData = await getImageDataFromBase64(b64, sourceBounds);
+
+        // Validate that we have an active document
+        if (!app.activeDocument) {
+            throw new Error("No active document found. Please open a document in Photoshop.");
+        }
+
         const newLayer = await app.activeDocument.layers.add();
+
+        // Validate that layer was created successfully
+        if (!newLayer) {
+            throw new Error("Failed to create a new layer.");
+        }
+
         newLayer.name = "Generated Image " + new Date().toLocaleTimeString();
         await imaging.putPixels({
             imageData: responseImageData,
@@ -436,10 +594,22 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         }
         if (splitContainer) splitContainer.classList.add('loading');
 
+        // Progress callback for multi-generation
+        let progressCount = 0;
+        const onProgress = (current, total, status, error) => {
+            if (status === 'success') {
+                progressCount++;
+            }
+            if (btn && total > 1) {
+                btn.innerHTML = `<span class="btn-text">Generating ${progressCount}/${total}...</span> <sp-progress-circle id="spinner" size="s" indeterminate style="margin-left: 8px;"></sp-progress-circle>`;
+            }
+        };
+
         const options = {
             num_images: numImages,
             input_image_blob: contextData.imageBlob,
-            input_images: referenceBlobs
+            input_images: referenceBlobs,
+            onProgress: onProgress
         };
 
         let results;
@@ -460,10 +630,23 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
 
         // D. Paste Results (Blocking)
         if (results) {
-            await core.executeAsModal(
-                (ctx) => pastePhase(ctx, results, contextData.sourceBounds),
-                { commandName: "Pasting Images..." }
-            );
+            // Check for partial success
+            if (Array.isArray(results) && results._partialSuccess) {
+                const message = `Generated ${results._successCount} of ${results._totalCount} images successfully. ${results._failureCount} failed.`;
+                console.warn(message);
+                // Still paste the successful ones
+                await core.executeAsModal(
+                    (ctx) => pastePhase(ctx, results, contextData.sourceBounds),
+                    { commandName: "Pasting Images..." }
+                );
+                // Show warning after pasting
+                await core.showAlert(message);
+            } else {
+                await core.executeAsModal(
+                    (ctx) => pastePhase(ctx, results, contextData.sourceBounds),
+                    { commandName: "Pasting Images..." }
+                );
+            }
         } else {
             core.showAlert("No content returned from AI.");
         }
@@ -481,67 +664,96 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
 
 // Preset UI Logic
 async function initPresetsUI() {
-    await presetManager.load();
-    renderPresetList();
+    // 1. Initialize Toggles (Sync, Immediate)
+    initMenuToggles();
 
-    // Toggle Add Preset Form
-    const toggleAdd = document.getElementById('btn-add-new-preset');
-    const addSection = document.getElementById('add-preset-section');
-    const presetWrapper = document.getElementById('preset-content-wrapper');
-    const presetChevronIcon = document.getElementById('preset-chevron');
-
-    if (toggleAdd && addSection) {
-        toggleAdd.addEventListener('click', (e) => {
-            e.stopPropagation(); // prevent header toggle
-
-            // If section is collapsed, expand it first
-            if (presetWrapper && presetWrapper.classList.contains('hidden')) {
-                presetWrapper.classList.remove('hidden');
-                if (presetChevronIcon) presetChevronIcon.classList.add('chevron-open');
-            }
-
-            addSection.classList.toggle('hidden');
-            // If we just opened it, focus the name field? 
-            if (!addSection.classList.contains('hidden')) {
-                setTimeout(() => document.getElementById('new-preset-name')?.focus(), 50);
-            }
-        });
+    // 2. Load Data (Async)
+    try {
+        await presetManager.load();
+        renderPresetList();
+    } catch (e) {
+        console.error("Failed to load presets:", e);
     }
 
-    // Toggle Presets Section
-    const presetHeaderToggle = document.getElementById('preset-header-toggle');
-    const presetContentWrapper = document.getElementById('preset-content-wrapper');
+    // 3. Initialize Add Preset Form Buttons
+    initAddPresetForm();
+}
+
+function initMenuToggles() {
+    // --- Presets Section ---
+    const presetHeader = document.getElementById('preset-header-toggle');
+    const presetWrapper = document.getElementById('preset-content-wrapper');
     const presetChevron = document.getElementById('preset-chevron');
 
-    if (presetHeaderToggle && presetContentWrapper && presetChevron) {
-        presetHeaderToggle.addEventListener('click', () => {
-            console.log("Preset header clicked"); // DEBUG
-            presetContentWrapper.classList.toggle('hidden');
-            presetChevron.classList.toggle('chevron-open');
-            console.log("Preset toggle end, class list:", presetChevron.classList); // DEBUG
-        });
+    if (presetHeader && presetWrapper && presetChevron) {
+        // Restore State
+        const isExpanded = localStorage.getItem('nanobanana_preset_expanded') === 'true';
+        presetWrapper.classList.toggle('hidden', !isExpanded);
+        presetChevron.classList.toggle('chevron-open', isExpanded);
+        console.log('[INIT] Preset menu initialized. Expanded:', isExpanded, 'Chevron classes:', presetChevron.classList.toString());
 
-        // Initialize: Set chevron to open position if content is visible
-        if (!presetContentWrapper.classList.contains('hidden')) {
-            presetChevron.classList.add('chevron-open');
-        }
+        // Click Listener
+        presetHeader.addEventListener('click', () => {
+            console.log('[CLICK] Preset header clicked');
+            const isHiddenNow = presetWrapper.classList.toggle('hidden');
+            presetChevron.classList.toggle('chevron-open', !isHiddenNow);
+            console.log('[TOGGLE] Hidden:', isHiddenNow, 'Chevron classes:', presetChevron.classList.toString());
+
+            // Save new state (if NOT hidden, then it IS expanded)
+            localStorage.setItem('nanobanana_preset_expanded', !isHiddenNow);
+        });
+    } else {
+        console.error('[ERROR] Preset toggle elements not found:', { presetHeader, presetWrapper, presetChevron });
     }
 
-    // Toggle Context Section
+    // --- Context Section ---
     const contextHeader = document.getElementById('context-header-toggle');
     const contextWrapper = document.getElementById('context-content-wrapper');
     const contextChevron = document.getElementById('context-chevron');
 
     if (contextHeader && contextWrapper && contextChevron) {
-        contextHeader.addEventListener('click', () => {
-            contextWrapper.classList.toggle('hidden');
-            contextChevron.classList.toggle('chevron-open');
-        });
+        // Restore State
+        const isExpanded = localStorage.getItem('nanobanana_context_expanded') === 'true';
+        contextWrapper.classList.toggle('hidden', !isExpanded);
+        contextChevron.classList.toggle('chevron-open', isExpanded);
+        console.log('[INIT] Context menu initialized. Expanded:', isExpanded, 'Chevron classes:', contextChevron.classList.toString());
 
-        // Initialize
-        if (!contextWrapper.classList.contains('hidden')) {
-            contextChevron.classList.add('chevron-open');
-        }
+        // Click Listener
+        contextHeader.addEventListener('click', () => {
+            console.log('[CLICK] Context header clicked');
+            const isHiddenNow = contextWrapper.classList.toggle('hidden');
+            contextChevron.classList.toggle('chevron-open', !isHiddenNow);
+            console.log('[TOGGLE] Hidden:', isHiddenNow, 'Chevron classes:', contextChevron.classList.toString());
+            localStorage.setItem('nanobanana_context_expanded', !isHiddenNow);
+        });
+    } else {
+        console.error('[ERROR] Context toggle elements not found:', { contextHeader, contextWrapper, contextChevron });
+    }
+}
+
+function initAddPresetForm() {
+    const toggleAdd = document.getElementById('btn-add-new-preset');
+    const addSection = document.getElementById('add-preset-section');
+    const presetWrapper = document.getElementById('preset-content-wrapper');
+    const presetChevron = document.getElementById('preset-chevron');
+
+    if (toggleAdd && addSection) {
+        toggleAdd.addEventListener('click', (e) => {
+            e.stopPropagation(); // prevent header toggle
+
+            // If section is collapsed, force expand it
+            if (presetWrapper && presetWrapper.classList.contains('hidden')) {
+                presetWrapper.classList.remove('hidden');
+                if (presetChevron) presetChevron.classList.add('chevron-open');
+                localStorage.setItem('nanobanana_preset_expanded', 'true');
+            }
+
+            const isHiddenNow = addSection.classList.toggle('hidden');
+
+            if (!isHiddenNow) {
+                setTimeout(() => document.getElementById('new-preset-name')?.focus(), 50);
+            }
+        });
     }
 
     const addBtn = document.getElementById('add-preset-btn');
@@ -554,7 +766,6 @@ async function initPresetsUI() {
                 namePx.value = '';
                 contentPx.value = '';
                 renderPresetList();
-                // Optionally hide form again
                 if (addSection) addSection.classList.add('hidden');
             }
         });
@@ -612,18 +823,16 @@ function renderPresetList() {
 
         // Edit Panel (Hidden primarily)
         const editPanel = document.createElement('div');
-        editPanel.className = 'preset-edit-panel flex-col'; // Match container class
+        editPanel.className = 'preset-edit-panel flex-col';
         Object.assign(editPanel.style, {
             display: 'none',
-            // gap: '8px', // handled by freeform if you had a class
         });
-        editPanel.classList.add('mt-s', 'gap-xs'); // Use classes
+        editPanel.classList.add('mt-s', 'gap-xs');
 
         const editName = document.createElement('sp-textfield');
         editName.value = p.name;
         editName.placeholder = "Name";
-        editName.className = "w-full"; // Match class
-        // editName.style.width = "100%"; // w-full handles this usually, but let's be safe if w-full isn't enough
+        editName.className = "w-full";
         editName.style.width = "100%";
 
         const editContent = document.createElement('sp-textarea');
@@ -640,8 +849,8 @@ function renderPresetList() {
         btnContainer.style.justifyContent = "flex-end";
 
         const saveEditBtn = document.createElement('sp-button');
-        saveEditBtn.variant = "cta"; // Match create button variant
-        saveEditBtn.innerText = "Save"; // Match create button text
+        saveEditBtn.variant = "cta";
+        saveEditBtn.innerText = "Save";
         saveEditBtn.size = "s";
 
         saveEditBtn.addEventListener('click', () => {
@@ -773,7 +982,11 @@ function initSpinnerControls() {
 window.addEventListener('DOMContentLoaded', () => {
     initializeModels();
     renderSelectedFiles();
-    initPresetsUI();
+    try {
+        initPresetsUI();
+    } catch (e) {
+        console.error("Failed to initialize Presets UI:", e);
+    }
     initPersistentUISettings();
     initSpinnerControls();
 });

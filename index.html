@@ -42,6 +42,14 @@
           <!-- Prompt Header -->
           <div class="flex-row-between mb-xs">
             <sp-field-label for="prompt-input" class="m-0">Prompt</sp-field-label>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <sp-picker id="refine-prompt-picker" size="s" quiet style="min-width: 120px;">
+                <sp-menu slot="options" id="refine-bg-menu"></sp-menu>
+              </sp-picker>
+              <sp-button id="btn-refine-prompt" variant="secondary" size="s">
+                Refine
+              </sp-button>
+            </div>
           </div>
 
           <sp-textarea id="prompt-input" name="prompt" placeholder="Describe the image..."
@@ -116,7 +124,7 @@
               <div class="section-group settings-group pt-xs">
                 <div class="flex-col" style="width: 100%;">
                   <!-- Checkboxes (Moved to top) -->
-                  <div class="settings-row flex-col gap-s items-start mb-l">
+                  <div class="flex-col gap-s items-start mb-l">
                     <sp-checkbox id="use-foreground" name="useForeground">Use Foreground Color</sp-checkbox>
                     <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
                   </div>

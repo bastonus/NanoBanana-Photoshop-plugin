@@ -1,4 +1,4 @@
-const { storage } = require('photoshop');
+
 
 const DEFAULT_PRESETS = [
     {

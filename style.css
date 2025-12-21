@@ -148,6 +148,10 @@ button {
   /* Align bottom */
 }
 
+.items-start {
+  align-items: flex-start !important;
+}
+
 /* Variations Control Wrapper */
 .variations-control {
   display: flex;
@@ -200,15 +204,13 @@ button {
 #preset-chevron,
 #context-chevron {
   width: 16px;
-  /* Increased touch target/visibility */
   height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-right: 4px;
   transition: transform 0.2s ease;
-  /* Moved from inline */
-  transform-origin: center center;
+  transform-origin: 50% 50%;
 }
 
 /* Ensure SVG fits nicely */
