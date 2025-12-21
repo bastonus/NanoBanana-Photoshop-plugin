@@ -29,6 +29,7 @@ async function initializeModels() {
     // Clear existing options
     select.innerHTML = '';
     // Populate from GOOGLE_MODELS
+    console.log("Populating models:", Object.keys(window.GOOGLE_MODELS));
     Object.keys(window.GOOGLE_MODELS).forEach((name, index) => {
         const opt = document.createElement('sp-menu-item');
         opt.value = name;
@@ -427,10 +428,13 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
 
         // C. Show Loading & Generate (Non-Blocking)
         const btn = document.getElementById('prompt-submit');
+        const splitContainer = document.querySelector('.split-btn-container'); // Get container for animation
+
         if (btn) {
             // btn.disabled = true; // User requested clickable
-            btn.innerHTML = `Generating... <span id="spinner" style="margin-inline-start: 8px;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
+            btn.innerHTML = `<span class="btn-text">Generating...</span> <sp-progress-circle id="spinner" size="s" indeterminate style="margin-left: 8px;"></sp-progress-circle>`;
         }
+        if (splitContainer) splitContainer.classList.add('loading');
 
         const options = {
             num_images: numImages,
@@ -449,8 +453,9 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         } finally {
             if (btn) {
                 // btn.disabled = false;
-                btn.innerHTML = `Submit <span id="spinner" style="margin-inline-start: 8px; display:none;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
+                btn.innerHTML = `<span class="btn-text">Generate</span> <sp-progress-circle id="spinner" size="s" indeterminate style="display:none; margin-left: 8px;"></sp-progress-circle>`;
             }
+            if (splitContainer) splitContainer.classList.remove('loading');
         }
 
         // D. Paste Results (Blocking)
@@ -469,7 +474,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         const btn = document.getElementById('prompt-submit');
         if (btn) {
             // btn.disabled = false;
-            btn.innerHTML = `Submit <span id="spinner" style="margin-inline-start: 8px; display:none;"><sp-progress-circle size="S" indeterminate label="Loading"></sp-progress-circle></span>`;
+            btn.innerHTML = `<span class="btn-text">Generate</span> <sp-progress-circle id="spinner" size="s" indeterminate style="display:none; margin-left: 8px;"></sp-progress-circle>`;
         }
     }
 });
@@ -510,8 +515,10 @@ async function initPresetsUI() {
 
     if (presetHeaderToggle && presetContentWrapper && presetChevron) {
         presetHeaderToggle.addEventListener('click', () => {
+            console.log("Preset header clicked"); // DEBUG
             presetContentWrapper.classList.toggle('hidden');
             presetChevron.classList.toggle('chevron-open');
+            console.log("Preset toggle end, class list:", presetChevron.classList); // DEBUG
         });
 
         // Initialize: Set chevron to open position if content is visible
@@ -605,36 +612,45 @@ function renderPresetList() {
 
         // Edit Panel (Hidden primarily)
         const editPanel = document.createElement('div');
-        editPanel.className = 'preset-edit-panel';
-        editPanel.style.display = 'none';
+        editPanel.className = 'preset-edit-panel flex-col'; // Match container class
+        Object.assign(editPanel.style, {
+            display: 'none',
+            // gap: '8px', // handled by freeform if you had a class
+        });
+        editPanel.classList.add('mt-s', 'gap-xs'); // Use classes
 
         const editName = document.createElement('sp-textfield');
         editName.value = p.name;
         editName.placeholder = "Name";
+        editName.className = "w-full"; // Match class
+        // editName.style.width = "100%"; // w-full handles this usually, but let's be safe if w-full isn't enough
         editName.style.width = "100%";
 
         const editContent = document.createElement('sp-textarea');
         editContent.value = p.content;
+        editContent.placeholder = "Content...";
         Object.assign(editContent.style, {
-            width: "100%",
-            height: "100px",
-            marginTop: "4px",
+            height: "60px",
             fontFamily: "adobe-clean"
         });
+        editContent.className = "w-full mt-xs";
+
+        const btnContainer = document.createElement('div');
+        btnContainer.className = "flex-row";
+        btnContainer.style.justifyContent = "flex-end";
 
         const saveEditBtn = document.createElement('sp-button');
-        saveEditBtn.variant = "secondary";
-        saveEditBtn.innerText = "Update";
+        saveEditBtn.variant = "cta"; // Match create button variant
+        saveEditBtn.innerText = "Save"; // Match create button text
         saveEditBtn.size = "s";
-        saveEditBtn.style.marginTop = "6px";
-        saveEditBtn.style.alignSelf = "flex-end";
 
         saveEditBtn.addEventListener('click', () => {
             presetManager.update(p.id, { name: editName.value, content: editContent.value });
             renderPresetList();
         });
 
-        editPanel.append(editName, editContent, saveEditBtn);
+        btnContainer.appendChild(saveEditBtn);
+        editPanel.append(editName, editContent, btnContainer);
         row.appendChild(editPanel);
 
         editBtn.addEventListener('click', () => {
@@ -683,7 +699,7 @@ function initPersistentUISettings() {
 // -----------------------------------------------------------
 function initSpinnerControls() {
     // 1. Button Controls (Click)
-    const btns = document.querySelectorAll('.spin-btn');
+    const btns = document.querySelectorAll('.spin-btn, .split-spin-btn');
     btns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetId = btn.getAttribute('data-target');
@@ -716,7 +732,7 @@ function initSpinnerControls() {
     });
 
     // 2. Keyboard Support (Arrow Keys)
-    const inputs = document.querySelectorAll('sp-textfield[type="number"]');
+    const inputs = document.querySelectorAll('sp-textfield[type="number"], #variations-value');
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {

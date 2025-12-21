@@ -59,7 +59,12 @@ button {
 }
 
 .mt-m {
-  margin-top: 12px;
+  margin-top: 16px;
+  /* Standardized to 16px */
+}
+
+.mr-m {
+  margin-right: 16px;
 }
 
 .mb-xs {
@@ -71,7 +76,54 @@ button {
 }
 
 .mb-m {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
+  /* Standardized to 16px */
+}
+
+.p-0 {
+  padding: 0;
+}
+
+.p-xs {
+  padding: 4px;
+}
+
+.py-xs {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.py-s {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.gap-xs {
+  gap: 4px;
+}
+
+.gap-s {
+  gap: 8px;
+}
+
+.gap-m {
+  gap: 16px;
+}
+
+/* Section Grouping */
+.my-s {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.my-xs {
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.py-xxs {
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 /* Section Grouping */
@@ -82,14 +134,16 @@ button {
   /* border-radius: 6px; */
   padding: 0;
   /* Removing padding too as box is gone, usually cleaner without box padding */
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  /* Tightened from 16px */
 }
 
 
 
 .settings-row {
   display: flex;
-  gap: 12px;
+  gap: 8px;
+  /* Tightened from 12px */
   align-items: flex-end;
   /* Align bottom */
 }
@@ -118,7 +172,8 @@ button {
   flex-direction: column;
   border: 1px solid transparent;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 8px 4px;
+  padding: 4px 4px;
+  /* Tightened from 8px */
 }
 
 .preset-item:hover {
@@ -142,8 +197,31 @@ button {
   opacity: 1;
 }
 
-.chevron-open {
-  transform: rotate(90deg);
+#preset-chevron,
+#context-chevron {
+  width: 16px;
+  /* Increased touch target/visibility */
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  transition: transform 0.2s ease;
+  /* Moved from inline */
+  transform-origin: center center;
+}
+
+/* Ensure SVG fits nicely */
+#preset-chevron svg,
+#context-chevron svg {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+#preset-chevron.chevron-open,
+#context-chevron.chevron-open {
+  transform: rotate(90deg) !important;
 }
 
 .clickable {
@@ -201,20 +279,22 @@ sp-textfield {
   position: relative;
   border: 1px solid var(--uxp-host-border-color, #444);
   background-color: var(--uxp-host-background-color, #323232);
-  /* Match theme */
   border-radius: 4px;
-  /* Standard rounding */
   height: 32px;
   overflow: hidden;
+  transition: border-color 0.2s;
+  /* Modern contour transition */
 }
 
-/* Ensure textfield fills space and has no borders itself if possible, 
-   or just sit nicely. CSS encapsulation makes styling shadow dom hard, 
-   so we rely on wrapper. */
+.number-spinner-wrapper:hover {
+  border-color: var(--uxp-host-text-color, #888);
+}
+
+/* Textfield inside wrapper */
 .number-spinner-wrapper sp-textfield {
   margin: 0;
-  width: 60px;
-  /* Default */
+  width: 100%;
+  /* Fill space */
   border: none;
   background: transparent;
   height: 100%;
@@ -223,9 +303,16 @@ sp-textfield {
 .spinner-btns {
   display: flex;
   flex-direction: column;
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
   width: 20px;
   height: 100%;
-  border-left: 1px solid var(--uxp-host-border-color, #444);
+  border-left: none;
+  /* No separator line as requested "directly in text area" look usually implies clean integration */
+  background: transparent;
+  z-index: 10;
 }
 
 .spin-btn {
@@ -234,24 +321,260 @@ sp-textfield {
   justify-content: center;
   align-items: center;
   cursor: pointer;
-  background-color: rgba(255, 255, 255, 0.05);
-  color: var(--uxp-host-text-color, #ccc);
-  transition: background-color 0.1s;
+  background-color: transparent;
+  color: var(--uxp-host-text-color, #999);
+  transition: color 0.1s, background-color 0.1s;
+  opacity: 0.6;
 }
 
 .spin-btn:hover {
-  background-color: rgba(255, 255, 255, 0.15);
+  color: var(--uxp-host-text-color, #fff);
+  opacity: 1;
+  background-color: rgba(255, 255, 255, 0.05);
+  /* Subtle hover bg */
 }
 
-/* Up button border bottom */
+/* Up button no border */
 .spin-btn.up {
-  border-bottom: 1px solid var(--uxp-host-border-color, #444);
+  border-bottom: none;
 }
 
 .spin-btn:active {
-  background-color: rgba(0, 0, 0, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 .clickable {
   cursor: pointer;
+}
+
+/* Split Button Styles */
+.split-btn-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: #0265DC;
+  /* Spectrum CTA Blue */
+  border-radius: 16px;
+  /* Exactly half of height 32px for Pill */
+  height: 40px;
+  /* Increased height */
+  width: 100%;
+  width: 100%;
+  max-width: 100%;
+  /* Removed max-width 300px constraint to allow full width */
+  margin: 0 auto;
+  /* Center it */
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: background-color 0.2s;
+  position: relative;
+  /* Needed for ::before animation */
+}
+
+/* Loading Animation State */
+.split-btn-container.loading {
+  cursor: wait;
+}
+
+.split-btn-container.loading::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  /* Wider to cover movement */
+  height: 100%;
+  background: repeating-linear-gradient(60deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.3) 10px,
+      rgba(255, 255, 255, 0.3) 20px);
+  animation: load 1s infinite linear;
+  z-index: 0;
+  /* Behind content */
+  pointer-events: none;
+}
+
+/* Ensure content sits above animation */
+.split-btn-counter,
+.split-btn-divider,
+.split-btn-action {
+  z-index: 1;
+  position: relative;
+}
+
+@keyframes load {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-40px);
+    /* Move by roughly one pattern cycle to loop seamlessly */
+  }
+}
+
+.split-btn-container:hover {
+  background-color: #0356B3;
+  /* Darker blue on hover */
+}
+
+/* Counter Section */
+.split-btn-counter {
+  flex: 0 0 auto;
+  /* Don't grow */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  /* Left align */
+  padding-left: 8px;
+  /* Padding for left alignment */
+  position: relative;
+  height: 100%;
+}
+
+#variations-value {
+  background: #0265DC !important;
+  background-color: #0265DC !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: white !important;
+  font-size: 16px;
+  font-weight: bold;
+  width: 20px;
+  /* Reduced width for compactness */
+  text-align: center;
+  outline: none !important;
+  padding: 0;
+  /* Removed height: 100% to allow flex align-items: center to work vertically */
+  /* Hide native spinners */
+  -moz-appearance: textfield;
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: "Adobe Clean", sans-serif;
+}
+
+#variations-value::-webkit-outer-spin-button,
+#variations-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Spinner Controls */
+.split-spinner-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  margin-left: 2px;
+  gap: 0;
+}
+
+.split-spin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  height: 12px;
+  width: 16px;
+  transition: color 0.1s;
+}
+
+.split-spin-btn:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+.split-spin-btn svg {
+  display: block;
+}
+
+/* Divider */
+.split-btn-divider {
+  width: 1px;
+  height: 24px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin: 0 2px;
+}
+
+/* Action Button */
+.split-btn-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  cursor: pointer;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  user-select: none;
+  padding-right: 4px;
+  /* Minimum spacing */
+}
+
+.split-btn-action:active {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.split-btn-action:focus {
+  outline: none;
+}
+
+.btn-text {
+  margin-right: 4px;
+  /* Space for spinner if it appears */
+}
+
+/* Model Selector Section */
+.split-btn-model {
+  flex: 0 0 auto;
+  /* Don't grow */
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  /* Left align */
+  padding-left: 8px;
+  /* Padding for left alignment */
+  position: relative;
+  /* For absolute overlay */
+  overflow: hidden;
+  min-width: 32px;
+  /* Minimum space for icon */
+  height: 100%;
+}
+
+.model-icon-wrapper {
+  color: white;
+  /* Explicit white color */
+  font-size: 20px;
+  /* Icon size */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* keep icon centered in its wrapper? No, wrapper size hugs content usually unless flexed. */
+  pointer-events: none;
+  /* Let clicks pass through to picker */
+  z-index: 1;
+}
+
+sp-picker.integrated-picker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  /* Invisible */
+  z-index: 2;
+  /* On top */
+  cursor: pointer;
+}
+
+/* Force text color and removal of focus ring if possible */
+sp-picker.integrated-picker:focus {
+  outline: none;
 }
