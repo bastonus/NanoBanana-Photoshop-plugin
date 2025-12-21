@@ -23,13 +23,14 @@
         </div>
 
         <sp-field-label for="api-key-input">API Key</sp-field-label>
-        <div class="flex-row">
+        <div class="flex-row" style="gap: 16px;">
           <div class="rounded-input-wrapper" style="flex:1;">
             <sp-textfield id="api-key-input" name="apiKey" placeholder="AIza..."
               style="width:100%; border:none; background:transparent;"></sp-textfield>
           </div>
+          <div style="width: 1px; height: 20px; background-color: rgba(255, 255, 255, 0.1);"></div>
           <sp-button id="submit-auth" variant="cta">Save</sp-button>
-          <sp-button id="cancel-auth" variant="secondary" style="display:none;">Cancel</sp-button>
+
         </div>
       </form>
     </section>
@@ -293,12 +294,12 @@
     </section>
 
     <!-- FOOTER: API CONFIG -->
-    <div id="api-management-section"
-      style="margin-top: auto; padding-top: 16px; border-top: 1px solid var(--uxp-host-border-color);">
+    <div id="api-management-section" style="margin-top: auto; padding-top: 16px;">
       <div class="flex-row-between">
-        <div class="flex-col">
-          <sp-detail>API Key Status</sp-detail>
-          <sp-status-light size="s" variant="positive">Active</sp-status-light>
+        <div class="flex-row" style="align-items: center;">
+          <span style="font-size: 12px; font-weight: bold; margin-right: 4px;">API Key Status:</span>
+          <div class="status-indicator-dot"></div>
+          <span style="color: #2D9D78; font-size: 12px; font-weight: bold;">active</span>
         </div>
         <sp-button id="signout" variant="secondary" size="s">Change</sp-button>
       </div>

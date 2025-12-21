@@ -11,33 +11,36 @@ async function initializeAuth() {
   document.getElementById('main').classList.toggle('hidden', !hasKey);
 
   // Reset Cancel button visibility (always hidden on init unless manually triggered)
-  document.getElementById('cancel-auth').style.display = 'none';
+  // document.getElementById('cancel-auth').style.display = 'none'; // Removed
+  const signoutBtn = document.getElementById('signout');
+  if (signoutBtn) signoutBtn.textContent = 'Change';
 }
 
 async function signout() {
-  console.log("Change Key clicked. Switching view...");
-  // "Change Key" clicked. Do NOT delete yet. Just show UI.
-  document.getElementById('main').classList.add('hidden');
-  document.getElementById('auth').classList.remove('hidden');
+  const btn = document.getElementById('signout');
+  const authSection = document.getElementById('auth');
+  const mainSection = document.getElementById('main');
 
-  // Show Cancel button because we have a key (implied by being able to click signout)
-  const cancelBtn = document.getElementById('cancel-auth');
-  if (cancelBtn) {
-    console.log("Showing Cancel button");
-    cancelBtn.style.display = 'inline-block'; // Try inline-block for sp-button
-    cancelBtn.classList.remove('hidden'); // Just in case
+  // Check if we are currently editing (Auth section is visible)
+  const isEditing = !authSection.classList.contains('hidden');
+
+  if (isEditing) {
+    // "Keep this key" clicked -> Act as Cancel
+    // Just re-initialize to restore state from storage
+    await initializeAuth();
   } else {
-    console.error("Cancel button not found!");
+    // "Change" clicked -> Act as Switch to Edit Mode
+    console.log("Change Key clicked. Switching view...");
+    mainSection.classList.add('hidden');
+    authSection.classList.remove('hidden');
+    btn.textContent = "Keep this key";
+
+    // Clear input for new key entry
+    document.getElementById('api-key-input').value = '';
   }
-
-  // Optional: Pre-fill input? No, security.
-  document.getElementById('api-key-input').value = '';
 }
 
-async function cancelAuth() {
-  // User decided not to change key. Restore main view.
-  await initializeAuth();
-}
+// async function cancelAuth() { ... } // Removed
 
 async function submitAuth() {
   const apiKey = document.getElementById('api-key-input').value;
@@ -53,8 +56,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const signoutBtn = document.getElementById('signout');
   if (signoutBtn) signoutBtn.addEventListener('click', signout);
 
-  const cancelBtn = document.getElementById('cancel-auth');
-  if (cancelBtn) cancelBtn.addEventListener('click', cancelAuth);
+  // const cancelBtn = document.getElementById('cancel-auth');
+  // if (cancelBtn) cancelBtn.addEventListener('click', cancelAuth);
 
   // document.getElementById('api-key-form').addEventListener('submit', submitAuth)
   const submitBtn = document.getElementById('submit-auth');

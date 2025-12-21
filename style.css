@@ -798,6 +798,15 @@ sp-checkbox {
   font-size: 12px !important;
 }
 
+.status-indicator-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #2D9D78;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 6px;
+}
+
 /* Ensure labels in settings sections are consistent */
 .settings-row sp-field-label,
 .control-group sp-field-label,
