@@ -1,0 +1,247 @@
+body {
+  padding: 1rem;
+  overflow-y: auto;
+  height: 100vh;
+  box-sizing: border-box;
+  background-color: var(--uxp-host-background-color, #323232);
+  color: var(--uxp-host-text-color, #eaeaea);
+  font-family: "Adobe Clean", sans-serif;
+}
+
+sp-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+/* Global Utilities */
+sp-button,
+sp-action-button,
+sp-checkbox,
+sp-radio,
+sp-link,
+.clickable,
+button {
+  cursor: pointer;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.flex-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flex-row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.mt-s {
+  margin-top: 8px;
+}
+
+.mt-m {
+  margin-top: 12px;
+}
+
+.mb-xs {
+  margin-bottom: 4px;
+}
+
+.mb-s {
+  margin-bottom: 8px;
+}
+
+.mb-m {
+  margin-bottom: 12px;
+}
+
+/* Section Grouping */
+.section-group {
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  /* Very subtle border */
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+
+
+.settings-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  /* Align bottom */
+}
+
+/* Variations Control Wrapper */
+.variations-control {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Beta Badge */
+.beta-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  background-color: #d17d00;
+  color: #fff;
+  border-radius: 3px;
+  font-weight: bold;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* Preset Items (Custom List) */
+.preset-item {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 4px;
+}
+
+.preset-item:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.preset-row-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preset-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.preset-item:hover .preset-actions {
+  opacity: 1;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+/* Component overrides for layout validation */
+sp-textarea,
+sp-textfield {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #555;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #777;
+}
+
+/* Custom Spinner Wrapper for sp-textfield */
+.number-spinner-wrapper {
+  display: flex;
+  align-items: center;
+  position: relative;
+  border: 1px solid var(--uxp-host-border-color, #444);
+  background-color: var(--uxp-host-background-color, #323232);
+  /* Match theme */
+  border-radius: 4px;
+  /* Standard rounding */
+  height: 32px;
+  overflow: hidden;
+}
+
+/* Ensure textfield fills space and has no borders itself if possible, 
+   or just sit nicely. CSS encapsulation makes styling shadow dom hard, 
+   so we rely on wrapper. */
+.number-spinner-wrapper sp-textfield {
+  margin: 0;
+  width: 60px;
+  /* Default */
+  border: none;
+  background: transparent;
+  height: 100%;
+}
+
+.spinner-btns {
+  display: flex;
+  flex-direction: column;
+  width: 20px;
+  height: 100%;
+  border-left: 1px solid var(--uxp-host-border-color, #444);
+}
+
+.spin-btn {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--uxp-host-text-color, #ccc);
+  transition: background-color 0.1s;
+}
+
+.spin-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Up button border bottom */
+.spin-btn.up {
+  border-bottom: 1px solid var(--uxp-host-border-color, #444);
+}
+
+.spin-btn:active {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+
+.clickable {
+  cursor: pointer;
+}

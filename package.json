@@ -1,0 +1,10 @@
+{
+  "name": "nano-banana",
+  "version": "1.0.0",
+  "description": "Nano-Banana Gemini 2.5 - Edit imaging using generative AI and reference images",
+  "author": "Astria Inc",
+  "license": "Proprietary",
+  "dependencies": {
+    "@spectrum-web-components/bundle": "^1.7.0"
+  }
+}

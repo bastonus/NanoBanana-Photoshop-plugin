@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="style.css" />
+  <script src="auth.js"></script>
+  <script src="main.js"></script>
+</head>
+
+<body>
+  <sp-body>
+    <sp-divider size="small"></sp-divider>
+
+    <!-- SECTION: AUTHENTICATION -->
+    <section id="auth">
+      <form id="api-key-form">
+        <sp-heading size="S">Google AI Studio Setup</sp-heading>
+        <sp-body size="S">
+          To use this plugin, you need a free API key from Google AI Studio.
+        </sp-body>
+        <div class="mt-s mb-m">
+          <sp-button variant="primary" id="open-astria">Get API Key</sp-button>
+        </div>
+
+        <sp-field-label for="api-key-input">API Key</sp-field-label>
+        <div class="flex-row">
+          <sp-textfield id="api-key-input" name="apiKey" placeholder="AIza..." style="flex:1;"></sp-textfield>
+          <sp-button id="submit-auth" variant="cta">Save</sp-button>
+        </div>
+
+        <!-- Back button if key exists (New Feature) -->
+        <div id="existing-key-controls" class="mt-m hidden" style="text-align: center;">
+          <sp-button id="use-existing-key" variant="secondary" style="width: 100%;">Use Saved Key</sp-button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECTION: MAIN UI -->
+    <section id="main" class="hidden">
+      <form id="prompt-form">
+
+        <!-- GROUP: INPUT -->
+        <div class="section-group">
+          <!-- Prompt Header -->
+          <div class="flex-row-between mb-xs">
+            <sp-field-label for="prompt-input" style="margin:0;">Prompt</sp-field-label>
+          </div>
+
+          <sp-textarea id="prompt-input" name="prompt" placeholder="Describe the image..."
+            style="width: 100%; height: 100px; font-family: adobe-clean; margin-bottom: 8px;"></sp-textarea>
+
+          <!-- Presets -->
+          <div id="preset-section" style="margin: 12px 0;">
+            <div class="flex-row-between mb-xs">
+              <div class="flex-row">
+                <sp-field-label style="margin:0;">Presets</sp-field-label>
+                <sp-icon name="ui:HelpMedium" size="s" title="Presets are appended to your main prompt."></sp-icon>
+              </div>
+              <!-- Add Preset Button -->
+              <sp-action-button id="btn-add-new-preset" quiet size="s" title="Add Preset">
+                <svg slot="icon" viewBox="0 0 18 18" width="12" height="12">
+                  <path
+                    d="M14,8h-4v-4c0-0.6-0.4-1-1-1s-1,0.4-1,1v4h-4c-0.6,0-1,0.4-1,1s0.4,1,1,1h4v4c0,0.6,0.4,1,1,1s1-0.4,1-1v-4h4c0.6,0,1-0.4,1-1S14.6,8,14,8z"
+                    fill="currentColor" />
+                </svg>
+              </sp-action-button>
+            </div>
+
+            <!-- Presets List -->
+            <div id="preset-list"></div>
+
+            <!-- Add Preset Form (Spectrum Style) -->
+            <div id="add-preset-section" class="mt-m hidden">
+              <div class="flex-col" id="add-preset-container"
+                style="gap: 8px; border: 1px solid var(--uxp-host-border-color); padding: 8px; border-radius: 4px;">
+                <sp-textfield id="new-preset-name" placeholder="Name" class="w-full"></sp-textfield>
+                <sp-textarea id="new-preset-content" placeholder="Content..."
+                  style="width: 100%; height: 60px;"></sp-textarea>
+                <div class="flex-row" style="justify-content: flex-end;">
+                  <sp-button id="add-preset-btn" variant="cta" size="s">Save</sp-button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reference Images -->
+          <div class="control-group mt-s">
+            <div class="flex-row-between mb-xs">
+              <div class="flex-row">
+                <sp-field-label for="reference-images" style="margin: 0;">Reference Image</sp-field-label>
+                <sp-icon name="ui:HelpMedium" size="s" title="Upload an image to guide structure/style."></sp-icon>
+              </div>
+              <sp-button id="reference-images" variant="secondary" size="s">Browse</sp-button>
+            </div>
+            <div id="selected-files" aria-label="Selected reference files" style="margin-top:4px;"></div>
+          </div>
+        </div>
+
+        <!-- GROUP: ACTIONS -->
+        <div class="section-group action-group flex-row mb-m" style="align-items: flex-end; gap: 12px;">
+          <!-- Variations (Custom Spinner) -->
+          <div style="flex: 0 0 auto;">
+            <sp-field-label for="variations-value" size="s">Variations</sp-field-label>
+            <div class="number-spinner-wrapper">
+              <!-- Keep type="number" for native behavior, but we might control it via JS mostly -->
+              <sp-textfield type="number" id="variations-value" value="1" min="1" max="8"
+                style="width: 60px; text-align: center;"></sp-textfield>
+              <div class="spinner-btns">
+                <div class="spin-btn up" data-target="variations-value" data-step="1" data-max="8">
+                  <svg viewBox="0 0 10 10" width="8" height="8">
+                    <path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  </svg>
+                </div>
+                <div class="spin-btn down" data-target="variations-value" data-step="1" data-min="1">
+                  <svg viewBox="0 0 10 10" width="8" height="8">
+                    <path d="M1 3 L5 7 L9 3" fill="none" stroke="currentColor" stroke-width="1.5" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Generate Button -->
+          <sp-button id="prompt-submit" variant="cta" style="flex: 1; height: 32px;">
+            Generate
+            <sp-progress-circle id="spinner" size="s" indeterminate slot="icon"
+              style="display:none;"></sp-progress-circle>
+          </sp-button>
+        </div>
+
+        <!-- GROUP: MODEL -->
+        <div class="section-group mb-m">
+          <sp-field-label for="model-select" style="margin:0;">Model</sp-field-label>
+          <sp-picker id="model-select-picker" class="w-full" size="m">
+            <sp-menu id="model-select" slot="options"></sp-menu>
+          </sp-picker>
+        </div>
+
+        <!-- GROUP: CONTEXT SETTINGS -->
+        <div class="section-group settings-group">
+          <div class="settings-row">
+            <!-- Upscale Context -->
+            <div class="setting-item flex-1">
+              <div class="flex-row mb-xs">
+                <sp-field-label style="margin:0;">Upscale Context</sp-field-label>
+                <span class="beta-badge">BETA</span>
+                <sp-icon name="ui:HelpMedium" size="s" title="Surrounding area to consider (1x - 4x)."></sp-icon>
+              </div>
+              <!-- Custom Spinner -->
+              <div class="number-spinner-wrapper" style="width: 100%;">
+                <sp-textfield type="number" id="upscale-value" value="1" min="1" max="4" step="0.5"
+                  style="flex:1;"></sp-textfield>
+                <div class="spinner-btns">
+                  <div class="spin-btn up" data-target="upscale-value" data-step="0.5" data-max="4">
+                    <svg viewBox="0 0 10 10" width="8" height="8">
+                      <path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                  </div>
+                  <div class="spin-btn down" data-target="upscale-value" data-step="0.5" data-min="1">
+                    <svg viewBox="0 0 10 10" width="8" height="8">
+                      <path d="M1 3 L5 7 L9 3" fill="none" stroke="currentColor" stroke-width="1.5" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-row mt-s">
+            <sp-checkbox id="use-foreground" name="useForeground">Use FG Color</sp-checkbox>
+            <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
+          </div>
+        </div>
+
+      </form>
+    </section>
+
+    <!-- FOOTER: API CONFIG -->
+    <div id="api-management-section"
+      style="margin-top: auto; padding-top: 20px; border-top: 1px solid var(--uxp-host-border-color);">
+      <div class="flex-row-between">
+        <div class="flex-col">
+          <sp-detail>API Key Status</sp-detail>
+          <sp-status-light size="s" variant="positive">Active</sp-status-light>
+        </div>
+        <sp-button id="signout" variant="secondary" size="s">Change</sp-button>
+      </div>
+    </div>
+
+  </sp-body>
+</body>
+
+</html>
