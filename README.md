@@ -103,8 +103,27 @@ Nano Banana is designed with **Privacy** and **Performance** in mind. We do not 
 
     After restarting Photoshop, the plugin will be available in the **Plugins** menu.
 
+3.  **Alternative Method (Developer Mode)**:
+    If you want to modify the code or contribute:
+    1.  Download the **UXP Developer Tool** from Adobe.
+    2.  Click "Add Plugin" and select the `manifest.json` file in the `NanoBananaPluginPS` folder.
+    3.  Click "Load".
+    4.  Open Photoshop, and the plugin will appear in the `Plugins` menu.
+
 ---
 
 ## 📜 License
 
 This project is licensed for personal and commercial use. Please ensure you satisfy the Terms of Service of the Google AI Studio API when using the generated images commercially.
+
+---
+
+## 🤝 Contributing & Help
+
+We love contributions! If you are a developer, designer, or just an enthusiast:
+
+-   **Found a bug?** Open an issue on GitHub.
+-   **Want to build a feature?** Fork the repo and submit a PR.
+-   **Need help?** Reach out on the discussions page.
+
+Help us make Nano Banana the best AI plugin for Photoshop! 🍌
