@@ -11,8 +11,6 @@
 
 <body>
   <sp-body>
-    <sp-divider size="small"></sp-divider>
-
     <!-- SECTION: AUTHENTICATION -->
     <section id="auth">
       <form id="api-key-form">
@@ -26,7 +24,10 @@
 
         <sp-field-label for="api-key-input">API Key</sp-field-label>
         <div class="flex-row">
-          <sp-textfield id="api-key-input" name="apiKey" placeholder="AIza..." style="flex:1;"></sp-textfield>
+          <div class="rounded-input-wrapper" style="flex:1;">
+            <sp-textfield id="api-key-input" name="apiKey" placeholder="AIza..."
+              style="width:100%; border:none; background:transparent;"></sp-textfield>
+          </div>
           <sp-button id="submit-auth" variant="cta">Save</sp-button>
           <sp-button id="cancel-auth" variant="secondary" style="display:none;">Cancel</sp-button>
         </div>
@@ -41,25 +42,123 @@
         <div class="section-group">
           <!-- Prompt Header -->
           <div class="flex-row-between mb-xs">
-            <sp-field-label for="prompt-input" class="m-0">Prompt</sp-field-label>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <sp-picker id="refine-prompt-picker" size="s" quiet style="min-width: 120px;">
-                <sp-menu slot="options" id="refine-bg-menu"></sp-menu>
-              </sp-picker>
-              <sp-button id="btn-refine-prompt" variant="secondary" size="s">
-                Refine
-              </sp-button>
+            <div class="flex-row" style="gap: 4px; width: 100%;">
+
+              <!-- Refine Action (Left / Main) -->
+              <div class="split-btn-container split-left variant-secondary" style="flex: 1; margin: 0;">
+                <div id="btn-refine-prompt" class="split-btn-action" role="button" tabindex="0">
+                  <span class="btn-text" style="font-size: 14px;">Refine prompt</span>
+                </div>
+              </div>
+
+              <!-- Refine Model Selector (Right) -->
+              <div class="split-btn-container split-right variant-secondary"
+                style="flex: 0 0 auto; width: auto; margin: 0; margin-left: 6px;">
+                <div class="split-btn-model" style="padding: 0 8px; width: 100%; justify-content: center;">
+                  <div class="model-icon-wrapper" style="margin-right: 4px;">
+                    <!-- Gemini Icon (scaled down slightly for secondary button if needed, or keep same) -->
+                    <svg fill="currentColor" fill-rule="evenodd" height="1em" style="flex:none;line-height:1"
+                      viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg">
+                      <title>Gemini</title>
+                      <path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z">
+                      </path>
+                    </svg>
+                  </div>
+                  <span id="refine-model-name-display"
+                    style="font-size: 11px; margin-right: 4px; opacity: 0.9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px; display: inline-block; vertical-align: middle;">Gemini
+                    3 Pro</span>
+                  <sp-picker id="refine-prompt-picker" class="integrated-picker" size="s" quiet>
+                    <sp-menu id="refine-bg-menu" slot="options"></sp-menu>
+                  </sp-picker>
+                  <div
+                    style="pointer-events: none; opacity: 0.8; margin-left: 2px; display: flex; align-items: center;">
+                    <svg viewBox="0 0 10 10" width="12" height="12">
+                      <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <sp-textarea id="prompt-input" name="prompt" placeholder="Describe the image..."
-            style="width: 100%; height: 100px; font-family: adobe-clean;" class="mb-s"></sp-textarea>
+          <div class="rounded-input-wrapper mb-s">
+            <sp-textarea id="prompt-input" name="prompt" placeholder="Describe the image..."
+              style="width: 100%; height: 100px; font-family: adobe-clean; border:none; background:transparent;"></sp-textarea>
+          </div>
+
+          <!-- GROUP: ACTIONS -->
+          <div class="section-group action-group mb-m">
+
+            <div class="flex-row" style="align-items: center;">
+              <!-- Split Button Container: Counter -->
+              <div class="split-btn-container counter-btn"
+                style="flex: 0 0 auto; width: auto; margin: 0; margin-right: 4px;">
+                <!-- Variation Counter -->
+                <div class="split-btn-counter" style="padding-right: 8px;">
+                  <input type="number" id="variations-value" value="1" min="1" max="8">
+                  <div class="split-spinner-controls">
+                    <div class="split-spin-btn up" data-target="variations-value" data-step="1" data-max="8">
+                      <svg viewBox="0 0 10 10" width="8" height="8">
+                        <path d="M2 7 L5 3 L8 7" fill="none" stroke="currentColor" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </div>
+                    <div class="split-spin-btn down" data-target="variations-value" data-step="1" data-min="1">
+                      <svg viewBox="0 0 10 10" width="8" height="8">
+                        <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="2"
+                          stroke-linecap="round" stroke-linejoin="round" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Split Button Container: Generate -->
+              <div class="split-btn-container generate-btn" style="flex: 1; margin: 0; margin-right: 4px;">
+                <!-- Generate Action -->
+                <div id="prompt-submit" class="split-btn-action" role="button" tabindex="0">
+                  <span class="btn-text">Generate</span>
+                  <sp-progress-circle id="spinner" size="s" indeterminate slot="icon"
+                    style="display:none; margin-left:8px;"></sp-progress-circle>
+                </div>
+              </div>
+
+              <!-- Model Selector (Right) -->
+              <!-- Model Selector (Right) -->
+              <!-- Model Selector (Right) -->
+              <div class="split-btn-container model-selector-btn" style="flex: 0 0 auto; width: auto; margin: 0;">
+                <div class="split-btn-model" style="padding: 0 8px; width: 100%; justify-content: center;">
+                  <div class="model-icon-wrapper" style="margin-right: 4px;">
+                    <svg fill="currentColor" fill-rule="evenodd" height="1em" style="flex:none;line-height:1"
+                      viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg">
+                      <title>Gemini</title>
+                      <path
+                        d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z">
+                      </path>
+                    </svg>
+                  </div>
+                  <sp-picker id="model-select-picker" class="integrated-picker" size="s" quiet>
+                    <sp-menu id="model-select" slot="options"></sp-menu>
+                  </sp-picker>
+                  <div
+                    style="pointer-events: none; opacity: 0.8; margin-left: 2px; display: flex; align-items: center;">
+                    <svg viewBox="0 0 10 10" width="12" height="12">
+                      <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="1.5"
+                        stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <!-- Presets -->
           <div id="preset-section" class="mb-s">
-            <sp-divider size="small" class="my-xs"></sp-divider>
             <div class="flex-row-between clickable py-xxs" id="preset-header-toggle">
-              <div class="flex-row">
+              <div class="flex-row" style="gap: 10px;">
                 <div id="preset-chevron">
                   <svg viewBox="0 0 10 10" width="10" height="10">
                     <path d="M3 2 L7 5 L3 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
@@ -67,16 +166,11 @@
                   </svg>
                 </div>
                 <sp-field-label class="m-0 clickable">Presets</sp-field-label>
-                <sp-icon name="ui:HelpMedium" size="s" title="Presets are appended to your main prompt."></sp-icon>
+                <span id="preset-count-badge" class="preset-count-badge">0</span>
+
               </div>
               <!-- Add Preset Button -->
-              <sp-action-button id="btn-add-new-preset" quiet size="s" title="Add Preset">
-                <svg slot="icon" viewBox="0 0 18 18" width="12" height="12">
-                  <path
-                    d="M14,8h-4v-4c0-0.6-0.4-1-1-1s-1,0.4-1,1v4h-4c-0.6,0-1,0.4-1,1s0.4,1,1,1h4v4c0,0.6,0.4,1,1,1s1-0.4,1-1v-4h4c0.6,0,1-0.4,1-1S14.6,8,14,8z"
-                    fill="currentColor" />
-                </svg>
-              </sp-action-button>
+              <sp-button id="btn-add-new-preset" variant="secondary" size="s">Create New</sp-button>
             </div>
 
 
@@ -89,26 +183,28 @@
               <!-- Add Preset Form (Spectrum Style) -->
               <div id="add-preset-section" class="mt-m hidden">
                 <div class="flex-col p-0 gap-xs" id="add-preset-container">
-                  <sp-textfield id="new-preset-name" placeholder="Name" class="w-full"></sp-textfield>
-                  <sp-textarea id="new-preset-content" placeholder="Content..."
-                    style="width: 100%; height: 60px;"></sp-textarea>
+                  <div class="rounded-input-wrapper w-full">
+                    <sp-textfield id="new-preset-name" placeholder="Name" class="w-full"
+                      style="border:none; background:transparent;"></sp-textfield>
+                  </div>
+                  <div class="rounded-input-wrapper" style="width: 100%;">
+                    <sp-textarea id="new-preset-content" placeholder="Content..."
+                      style="width: 100%; height: 60px; border:none; background:transparent;"></sp-textarea>
+                  </div>
                   <div class="flex-row" style="justify-content: flex-end;">
                     <sp-button id="add-preset-btn" variant="cta" size="s">Save</sp-button>
                   </div>
                 </div>
               </div>
             </div>
-            <sp-divider size="small" class="my-xs"></sp-divider>
           </div>
 
 
 
           <!-- Context Settings (Expandable) -->
           <div id="context-section" class="mb-s">
-            <sp-divider size="small" class="my-xs"></sp-divider>
-
             <div class="flex-row-between clickable py-xxs" id="context-header-toggle">
-              <div class="flex-row">
+              <div class="flex-row" style="gap: 10px;">
                 <div id="context-chevron">
                   <svg viewBox="0 0 10 10" width="10" height="10">
                     <path d="M3 2 L7 5 L3 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
@@ -125,16 +221,21 @@
                 <div class="flex-col" style="width: 100%;">
                   <!-- Checkboxes (Moved to top) -->
                   <div class="flex-col gap-s items-start mb-l">
-                    <sp-checkbox id="use-foreground" name="useForeground">Use Foreground Color</sp-checkbox>
-                    <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
+                    <div class="flex-row" style="gap: 10px;">
+                      <sp-checkbox id="use-foreground" name="useForeground">Use Foreground Color</sp-checkbox>
+
+                    </div>
+                    <div class="flex-row" style="gap: 10px;">
+                      <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
+
+                    </div>
                   </div>
                   <!-- Reference Images (Moved here) -->
                   <div class="control-group mt-s mb-l">
                     <div class="flex-row-between mb-xs">
-                      <div class="flex-row">
+                      <div class="flex-row" style="gap: 10px;">
                         <sp-field-label for="reference-images" class="m-0">Reference Image</sp-field-label>
-                        <sp-icon name="ui:HelpMedium" size="s"
-                          title="Upload an image to guide structure/style."></sp-icon>
+
                       </div>
                       <sp-button id="reference-images" variant="secondary" size="s">Browse</sp-button>
                     </div>
@@ -142,29 +243,26 @@
                   </div>
 
                   <!-- Upscale Context -->
-                  <div class="settings-row mb-m">
+                  <div class="settings-row">
                     <div class="flex-row items-center w-full justify-between">
-                      <div class="flex-row mr-m">
+                      <div class="flex-row" style="gap: 10px;">
                         <sp-field-label class="m-0">Upscale</sp-field-label>
-                        <span class="beta-badge ml-xs">BETA</span>
-                        <sp-icon name="ui:HelpMedium" size="s" title="Surrounding area to consider (1x - 4x)."
-                          class="ml-xs"></sp-icon>
+                        <span class="beta-badge">BETA</span>
+
                       </div>
-                      <!-- Custom Spinner -->
-                      <!-- Custom Spinner Wrapper -->
-                      <div class="number-spinner-wrapper" style="width: 80px;">
-                        <sp-textfield type="number" id="upscale-value" value="1" min="1" max="4" step="0.5"
-                          style="flex:1; text-align: left; padding-right: 20px;"></sp-textfield>
-                        <div class="spinner-btns">
-                          <div class="spin-btn up" data-target="upscale-value" data-step="0.5" data-max="4">
-                            <svg viewBox="0 0 10 10" width="6" height="6">
-                              <path d="M1 7 L5 3 L9 7" fill="none" stroke="currentColor" stroke-width="1.5"
+                      <!-- Upscale Compact Counter -->
+                      <div class="upscale-counter-wrapper">
+                        <input type="number" id="upscale-value" value="1" min="1" max="4" step="0.5">
+                        <div class="upscale-spinner-controls">
+                          <div class="upscale-spin-btn up" data-target="upscale-value" data-step="0.5" data-max="4">
+                            <svg viewBox="0 0 10 10" width="8" height="8">
+                              <path d="M2 7 L5 3 L8 7" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                           </div>
-                          <div class="spin-btn down" data-target="upscale-value" data-step="0.5" data-min="1">
-                            <svg viewBox="0 0 10 10" width="6" height="6">
-                              <path d="M1 3 L5 7 L9 3" fill="none" stroke="currentColor" stroke-width="1.5"
+                          <div class="upscale-spin-btn down" data-target="upscale-value" data-step="0.5" data-min="1">
+                            <svg viewBox="0 0 10 10" width="8" height="8">
+                              <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round" />
                             </svg>
                           </div>
@@ -177,7 +275,6 @@
 
               </div>
             </div>
-            <sp-divider size="small" style="margin: 8px 0;"></sp-divider>
           </div>
         </div>
 
@@ -186,61 +283,7 @@
         <!-- GROUP: ACTIONS -->
 
         <!-- GROUP: ACTIONS -->
-        <div class="section-group action-group mb-m">
 
-          <!-- Split Button Container -->
-          <div class="split-btn-container">
-
-            <!-- Left: Model Selector -->
-            <div class="split-btn-model">
-              <div class="model-icon-wrapper">
-                <svg fill="currentColor" fill-rule="evenodd" height="1em" style="flex:none;line-height:1"
-                  viewBox="0 0 24 24" width="1em" xmlns="http://www.w3.org/2000/svg">
-                  <title>Gemini</title>
-                  <path
-                    d="M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z">
-                  </path>
-                </svg>
-              </div>
-              <sp-picker id="model-select-picker" class="integrated-picker" size="s" quiet>
-                <sp-menu id="model-select" slot="options"></sp-menu>
-              </sp-picker>
-            </div>
-
-            <!-- Divider -->
-            <div class="split-btn-divider"></div>
-
-            <!-- Middle: Variation Counter -->
-            <div class="split-btn-counter">
-              <input type="number" id="variations-value" value="1" min="1" max="8">
-              <div class="split-spinner-controls">
-                <div class="split-spin-btn up" data-target="variations-value" data-step="1" data-max="8">
-                  <svg viewBox="0 0 10 10" width="8" height="8">
-                    <path d="M2 7 L5 3 L8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                      stroke-linejoin="round" />
-                  </svg>
-                </div>
-                <div class="split-spin-btn down" data-target="variations-value" data-step="1" data-min="1">
-                  <svg viewBox="0 0 10 10" width="8" height="8">
-                    <path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                      stroke-linejoin="round" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <!-- Divider -->
-            <div class="split-btn-divider"></div>
-
-            <!-- Right: Generate Button -->
-            <div id="prompt-submit" class="split-btn-action" role="button" tabindex="0">
-              <span class="btn-text">Generate</span>
-              <sp-progress-circle id="spinner" size="s" indeterminate slot="icon"
-                style="display:none; margin-left:8px;"></sp-progress-circle>
-            </div>
-
-          </div>
-        </div>
 
 
         <!-- GROUP: CONTEXT SETTINGS -->

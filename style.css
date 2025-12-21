@@ -67,6 +67,10 @@ button {
   margin-right: 16px;
 }
 
+.ml-xs {
+  margin-left: 6px;
+}
+
 .mb-xs {
   margin-bottom: 4px;
 }
@@ -166,18 +170,31 @@ button {
   color: #fff;
   border-radius: 3px;
   font-weight: bold;
-  margin-left: 6px;
+  margin-left: 10px;
   vertical-align: middle;
+}
+
+/* Preset Count Badge */
+.preset-count-badge {
+  font-size: 10px;
+  padding: 2px 5px;
+  background-color: #0265DC;
+  color: #fff;
+  border-radius: 4px;
+  font-weight: bold;
+  vertical-align: middle;
+  display: none;
+  margin-left: 6px;
 }
 
 /* Preset Items (Custom List) */
 .preset-item {
   display: flex;
   flex-direction: column;
-  border: 1px solid transparent;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   padding: 4px 4px;
   /* Tightened from 8px */
+  border: none;
+  outline: none;
 }
 
 .preset-item:hover {
@@ -208,7 +225,6 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-right: 4px;
   transition: transform 0.2s ease;
   transform-origin: 50% 50%;
 }
@@ -250,10 +266,31 @@ button {
 }
 
 /* Component overrides for layout validation */
-sp-textarea,
-sp-textfield {
+/* Wrapper for Rounded Inputs */
+.rounded-input-wrapper {
+  display: flex;
+
+  border: 1px solid var(--uxp-host-border-color, #444);
+  background-color: var(--uxp-host-background-color, #323232);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.rounded-input-wrapper:hover {
+  border-color: var(--uxp-host-text-color, #888);
+}
+
+.rounded-input-wrapper:focus-within {
+  border-color: #0265DC;
+}
+
+.rounded-input-wrapper sp-textarea,
+.rounded-input-wrapper sp-textfield {
   width: 100%;
-  margin-bottom: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
 }
 
 /* Scrollbar */
@@ -354,10 +391,11 @@ sp-textfield {
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: #0265DC;
+  background-color: #0356B3;
   /* Spectrum CTA Blue */
-  border-radius: 16px;
-  /* Exactly half of height 32px for Pill */
+  border: 2px solid #0265DC;
+  border-radius: 20px;
+  /* Exactly half of height 40px for Pill */
   height: 40px;
   /* Increased height */
   width: 100%;
@@ -416,9 +454,79 @@ sp-textfield {
   }
 }
 
+/* Disable loading animation on Counter and Model Selector */
+.split-btn-container.counter-btn.loading::before,
+.split-btn-container.model-selector-btn.loading::before {
+  display: none;
+  content: none;
+  animation: none;
+}
+
 .split-btn-container:hover {
-  background-color: #0356B3;
+  background-color: #024491;
   /* Darker blue on hover */
+}
+
+.split-btn-container:hover #variations-value {
+  background-color: #024491 !important;
+}
+
+/* Secondary Variant (Refine Button) - Mimic sp-button secondary */
+.split-btn-container.variant-secondary {
+  background-color: transparent;
+  border: 1px solid #6E6E6E;
+  height: 32px !important;
+  /* Standard size s height */
+  border-radius: 16px;
+  color: var(--uxp-host-text-color, #eaeaea);
+  box-shadow: none;
+}
+
+.split-btn-container.variant-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+  /* Subtle hover */
+  border-color: #A0A0A0;
+  /* Lighter on hover */
+}
+
+.split-btn-container.variant-secondary .split-btn-action {
+  color: var(--uxp-host-text-color, #eaeaea);
+  font-weight: normal;
+  /* Standard text weight */
+}
+
+.split-btn-container.variant-secondary .model-icon-wrapper {
+  color: var(--uxp-host-text-color, #eaeaea);
+}
+
+.split-btn-container.variant-secondary .split-btn-divider {
+  background-color: #6E6E6E;
+  /* Match border */
+  height: 20px;
+  width: 1px;
+}
+
+/* Counter Button Specific (Left) */
+.split-btn-container.counter-btn,
+.split-btn-container.split-left {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* Generate Button Specific (Middle) */
+.split-btn-container.generate-btn {
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 4px;
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+}
+
+/* Model Selector Specific Darker Blue (Right) */
+.split-btn-container.model-selector-btn,
+.split-btn-container.split-right {
+  border-top-left-radius: 4px;
+  border-bottom-left-radius: 4px;
+  cursor: pointer;
 }
 
 /* Counter Section */
@@ -436,8 +544,8 @@ sp-textfield {
 }
 
 #variations-value {
-  background: #0265DC !important;
-  background-color: #0265DC !important;
+  background: #0356B3 !important;
+  background-color: #0356B3 !important;
   background-image: none !important;
   border: none !important;
   box-shadow: none !important;
@@ -469,7 +577,7 @@ sp-textfield {
   flex-direction: column;
   justify-content: center;
   height: 100%;
-  margin-left: 2px;
+  margin-left: 0;
   gap: 0;
 }
 
@@ -480,7 +588,7 @@ sp-textfield {
   cursor: pointer;
   color: rgba(255, 255, 255, 0.7);
   height: 12px;
-  width: 16px;
+  width: 12px;
   transition: color 0.1s;
 }
 
@@ -514,8 +622,6 @@ sp-textfield {
   font-weight: bold;
   font-size: 16px;
   user-select: none;
-  padding-right: 4px;
-  /* Minimum spacing */
 }
 
 .split-btn-action:active {
@@ -527,8 +633,7 @@ sp-textfield {
 }
 
 .btn-text {
-  margin-right: 4px;
-  /* Space for spinner if it appears */
+  /* Space for spinner if it appears is handled by spinner margin */
 }
 
 /* Model Selector Section */
@@ -547,12 +652,13 @@ sp-textfield {
   min-width: 32px;
   /* Minimum space for icon */
   height: 100%;
+  cursor: pointer;
 }
 
 .model-icon-wrapper {
   color: white;
   /* Explicit white color */
-  font-size: 20px;
+  font-size: 16px;
   /* Icon size */
   display: flex;
   align-items: center;
@@ -579,4 +685,123 @@ sp-picker.integrated-picker {
 /* Force text color and removal of focus ring if possible */
 sp-picker.integrated-picker:focus {
   outline: none;
+}
+
+/* Upscale Counter Styles */
+.upscale-counter-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--uxp-host-border-color, #444);
+  background-color: var(--uxp-host-background-color, #323232);
+  border-radius: 4px;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.upscale-counter-wrapper:hover {
+  border-color: var(--uxp-host-text-color, #666);
+  background-color: var(--uxp-host-background-color, #323232);
+}
+
+#upscale-value {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: var(--uxp-host-text-color, #eaeaea) !important;
+  font-size: 13px;
+  font-weight: 600;
+  width: 28px;
+  text-align: center;
+  outline: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  height: 24px;
+  line-height: 24px;
+  -moz-appearance: textfield;
+  -webkit-appearance: none;
+  appearance: none;
+  font-family: "Adobe Clean", sans-serif;
+}
+
+/* Force remove any inherited backgrounds */
+#upscale-value:focus,
+#upscale-value:active,
+#upscale-value:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+#upscale-value::-webkit-outer-spin-button,
+#upscale-value::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+.upscale-spinner-controls {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+
+.upscale-spin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: rgba(234, 234, 234, 0.6);
+  height: 11px;
+  width: 16px;
+  transition: color 0.1s, background-color 0.1s;
+  border-radius: 2px;
+}
+
+.upscale-spin-btn:hover {
+  color: var(--uxp-host-text-color, #eaeaea);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.upscale-spin-btn svg {
+  display: block;
+}
+
+/* Collapsible Content Wrapper Borders */
+#preset-content-wrapper,
+#context-content-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 8px;
+  margin-top: 8px;
+}
+
+#preset-content-wrapper.hidden,
+#context-content-wrapper.hidden {
+  display: none;
+}
+
+/* Standardized Font Sizes for Settings */
+sp-field-label,
+sp-checkbox,
+sp-button[size="s"],
+sp-picker[size="s"] {
+  font-size: 12px !important;
+}
+
+sp-checkbox {
+  font-size: 12px !important;
+}
+
+/* Ensure labels in settings sections are consistent */
+.settings-row sp-field-label,
+.control-group sp-field-label,
+#preset-section sp-field-label,
+#context-section sp-field-label {
+  font-size: 12px !important;
 }

@@ -71,8 +71,8 @@ function initializeRefineMenu() {
         const item = document.createElement('sp-menu-item');
         item.textContent = name;
         item.value = name;
-        // Set Gemini 2.0 Flash (latest available) as default, or first item as fallback
-        if (name.includes('2.0') || index === 0) {
+        // Set Gemini 3 Pro as default
+        if (name.includes('Gemini 3 Pro') || (index === 0 && !Object.keys(textModels).some(n => n.includes('Gemini 3 Pro')))) {
             item.selected = true;
         }
         // No click listener, we use picker change event
@@ -91,6 +91,25 @@ function initializeRefineMenu() {
             }
         });
     }
+
+    // Sync Text Display
+    const nameDisplay = document.getElementById('refine-model-name-display');
+    const updateName = () => {
+        if (refinePicker.value && nameDisplay) {
+            // Remove 'Gemini' prefix for brevity if desired, or keep full name
+            // User requested "write the model name", so keeping it roughly as is but maybe compact
+            let display = refinePicker.value.replace('models/', '');
+            if (display.includes('Gemini 3 Pro')) display = 'Gemini 3 Pro';
+            else if (display.includes('1.5 Pro')) display = '1.5 Pro';
+            else if (display.includes('1.5 Flash')) display = '1.5 Flash';
+            // Fallback
+            nameDisplay.textContent = display;
+        }
+    };
+
+    refinePicker.addEventListener('change', updateName);
+    // Initial update
+    setTimeout(updateName, 100); // Small delay to ensure items populated
 }
 
 // Helper function to capture selection for refinement (modal)
@@ -131,10 +150,12 @@ async function handleRefinePrompt(modelName, buttonElement) {
         return;
     }
 
-    // Show loading state on button
+    // Show loading state on button (Custom Split Button)
     const originalButtonContent = buttonElement.innerHTML;
-    buttonElement.innerHTML = '<sp-progress-circle size="s" indeterminate style="width:12px; height:12px;"></sp-progress-circle>';
-    buttonElement.disabled = true;
+    // We are inside a .split-btn-action content, so we just replace content
+    buttonElement.innerHTML = '<span class="btn-text" style="font-size: 14px;">Refining...</span> <sp-progress-circle size="s" indeterminate style="width:12px; height:12px; margin-left: 6px;"></sp-progress-circle>';
+    const pointerEventsOriginal = buttonElement.style.pointerEvents;
+    buttonElement.style.pointerEvents = 'none'; // Disable clicks
 
     try {
         const apiKey = await getApiKey();
@@ -182,7 +203,7 @@ Original prompt: ${originalPrompt}`;
     } finally {
         // Restore button
         buttonElement.innerHTML = originalButtonContent;
-        buttonElement.disabled = false;
+        buttonElement.style.pointerEvents = pointerEventsOriginal || 'auto';
     }
 }
 
@@ -197,22 +218,23 @@ function renderSelectedFiles() {
     }
     container.innerHTML = files
         .map((file, index) => (
-            `<div class="file-item">
-        <sp-button
-          variant="primary"
-          treatment="outline"
-          quiet
-          size="S"
-          aria-label="Remove ${file.name}"
-          data-action="remove"
-          data-index="${index}">🗑️</sp-button>
-        <sp-body class="file-name">${file.name}</sp-body>
+            `<div class="preset-item my-xs">
+        <div class="preset-row-main">
+          <div class="preset-checkbox-container" style="padding-left: 8px;">
+             <span class="file-name" style="font-size: 12px; color: var(--uxp-host-text-color, #eaeaea);">${file.name}</span>
+          </div>
+          <div class="preset-actions">
+             <sp-action-button quiet size="S" aria-label="Remove ${file.name}" data-action="remove" data-index="${index}">
+               <svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z M12.9,16c-0.1,0.5-0.5,0.8-1,0.8H6.1c-0.5,0-0.9-0.4-1-0.8L4.1,5h9.9L12.9,16z" fill="currentColor"/></svg>
+             </sp-action-button>
+          </div>
+        </div>
       </div>`
         ))
         .join('');
 
     container.onclick = (e) => {
-        const btn = e.target.closest('sp-button[data-action="remove"]');
+        const btn = e.target.closest('sp-action-button[data-action="remove"]');
         if (!btn) return;
         const i = parseInt(btn.getAttribute('data-index'), 10);
         const arr = (window.selectedFiles || []).slice();
@@ -777,6 +799,14 @@ function renderPresetList() {
     if (!container) return;
     container.innerHTML = '';
     const presets = presetManager.getAll();
+
+    // Update preset count badge
+    const activeCount = presets.filter(p => p.active).length;
+    const countBadge = document.getElementById('preset-count-badge');
+    if (countBadge) {
+        countBadge.textContent = activeCount;
+        countBadge.style.display = activeCount > 0 ? 'inline-block' : 'none';
+    }
     presets.forEach(p => {
         // Create Row Container
         const row = document.createElement('div');
@@ -794,6 +824,7 @@ function renderPresetList() {
         cb.checked = p.active;
         cb.addEventListener('change', (e) => {
             presetManager.toggleActive(p.id, e.target.checked);
+            renderPresetList();
         });
         cbContainer.appendChild(cb);
 
@@ -908,7 +939,7 @@ function initPersistentUISettings() {
 // -----------------------------------------------------------
 function initSpinnerControls() {
     // 1. Button Controls (Click)
-    const btns = document.querySelectorAll('.spin-btn, .split-spin-btn');
+    const btns = document.querySelectorAll('.spin-btn, .split-spin-btn, .upscale-spin-btn');
     btns.forEach(btn => {
         btn.addEventListener('click', (e) => {
             const targetId = btn.getAttribute('data-target');
@@ -941,7 +972,7 @@ function initSpinnerControls() {
     });
 
     // 2. Keyboard Support (Arrow Keys)
-    const inputs = document.querySelectorAll('sp-textfield[type="number"], #variations-value');
+    const inputs = document.querySelectorAll('sp-textfield[type="number"], #variations-value, #upscale-value');
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
