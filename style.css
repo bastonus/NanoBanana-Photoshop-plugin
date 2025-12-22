@@ -219,7 +219,8 @@ button {
 }
 
 #preset-chevron,
-#context-chevron {
+#context-chevron,
+#history-chevron {
   width: 16px;
   height: 16px;
   display: flex;
@@ -231,16 +232,14 @@ button {
 
 /* Ensure SVG fits nicely */
 #preset-chevron svg,
-#context-chevron svg {
+#context-chevron svg,
+#history-chevron svg {
   width: 10px;
   height: 10px;
   display: block;
 }
 
-#preset-chevron.chevron-open,
-#context-chevron.chevron-open {
-  transform: rotate(90deg) !important;
-}
+
 
 .clickable {
   cursor: pointer;
@@ -391,9 +390,10 @@ button {
   display: flex;
   flex-direction: row;
   align-items: center;
-  background-color: #0356B3;
-  /* Spectrum CTA Blue */
-  border: 2px solid #0265DC;
+  background-color: #0265DC;
+  /* Spectrum CTA Blue - Now used as background */
+  border: 1px solid #5CA5FF;
+  /* Lighter blue stroke */
   border-radius: 20px;
   /* Exactly half of height 40px for Pill */
   height: 40px;
@@ -544,8 +544,8 @@ button {
 }
 
 #variations-value {
-  background: #0356B3 !important;
-  background-color: #0356B3 !important;
+  background: #0265DC !important;
+  background-color: #0265DC !important;
   background-image: none !important;
   border: none !important;
   box-shadow: none !important;
@@ -632,9 +632,7 @@ button {
   outline: none;
 }
 
-.btn-text {
-  /* Space for spinner if it appears is handled by spinner margin */
-}
+
 
 /* Model Selector Section */
 .split-btn-model {
@@ -781,8 +779,16 @@ sp-picker.integrated-picker:focus {
   margin-top: 8px;
 }
 
+#history-content-wrapper {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 0;
+  margin-top: 8px;
+}
+
 #preset-content-wrapper.hidden,
-#context-content-wrapper.hidden {
+#context-content-wrapper.hidden,
+#history-content-wrapper.hidden {
   display: none;
 }
 
@@ -810,7 +816,124 @@ sp-checkbox {
 /* Ensure labels in settings sections are consistent */
 .settings-row sp-field-label,
 .control-group sp-field-label,
+.control-group.mt-l sp-field-label,
+/* Specific for History */
 #preset-section sp-field-label,
-#context-section sp-field-label {
+#context-section sp-field-label,
+#history-section sp-field-label {
   font-size: 12px !important;
+}
+
+/* History List */
+/* History List */
+.history-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  /* Removed gap for separator lines */
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.history-empty-state {
+  font-size: 11px;
+  color: var(--uxp-host-text-color-secondary, #808080);
+  padding: 8px 0;
+  font-style: italic;
+  text-align: center;
+}
+
+.history-item {
+  background: transparent;
+  /* Removed background */
+  border: none;
+  /* Removed border */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* Added Separator */
+  border-radius: 0;
+  /* Removed radius */
+  padding: 12px 4px;
+  /* Adjusted padding */
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-item:last-child {
+  border-bottom: none;
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.history-prompt {
+  font-size: 11px;
+  color: var(--uxp-host-text-color, #eaeaea);
+  max-height: 4.5em;
+  /* ~3 lines */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  width: 100%;
+  margin-right: 8px;
+}
+
+.history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 10px;
+  color: var(--uxp-host-text-color-secondary, #9e9e9e);
+  margin-top: 2px;
+  align-items: center;
+}
+
+.history-tag {
+  background: rgba(255, 255, 255, 0.08);
+  /* faint pill */
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.history-time {
+  margin-left: auto;
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.history-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding-top: 8px;
+}
+
+/* API Management Footer - Sticky/Fixed */
+#api-management-section {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--uxp-host-background-color, #323232);
+  z-index: 100;
+  padding: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  /* Ensure it sits above content */
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Add padding to body so content isn't hidden behind fixed footer */
+sp-body {
+  padding-bottom: 70px;
+  /* Approximate height of footer */
 }

@@ -224,11 +224,13 @@
                   <div class="flex-col gap-s items-start mb-l">
                     <div class="flex-row" style="gap: 10px;">
                       <sp-checkbox id="use-foreground" name="useForeground">Use Foreground Color</sp-checkbox>
-
                     </div>
                     <div class="flex-row" style="gap: 10px;">
-                      <sp-checkbox id="use-layer-only" name="useLayerOnly">Selected Layer Only</sp-checkbox>
-
+                      <sp-checkbox id="use-layer-only" name="useLayerOnly">Use only selected layer(s)</sp-checkbox>
+                    </div>
+                    <div class="flex-row" style="gap: 10px;">
+                      <sp-checkbox id="use-exact-dimensions" name="useExactDimensions">Use exact
+                        dimensions</sp-checkbox>
                     </div>
                   </div>
                   <!-- Reference Images (Moved here) -->
@@ -271,9 +273,34 @@
                       </div>
                     </div>
                   </div>
+
+
+
                 </div>
+              </div>
+            </div>
+          </div>
 
+          <!-- History (Expandable) -->
+          <div id="history-section" class="mb-s">
+            <div class="flex-row-between clickable py-xxs" id="history-header-toggle">
+              <div class="flex-row" style="gap: 10px;">
+                <div id="history-chevron">
+                  <svg viewBox="0 0 10 10" width="10" height="10">
+                    <path d="M3 2 L7 5 L3 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+                      stroke-linejoin="round" />
+                  </svg>
+                </div>
+                <sp-field-label class="m-0 clickable">History</sp-field-label>
+              </div>
+            </div>
 
+            <div id="history-content-wrapper" class="hidden">
+              <div class="section-group settings-group pt-xs">
+                <div id="history-list" class="history-list-container">
+                  <!-- History items will be injected here -->
+                  <div class="history-empty-state">No history yet.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -294,7 +321,7 @@
     </section>
 
     <!-- FOOTER: API CONFIG -->
-    <div id="api-management-section" style="margin-top: auto; padding-top: 16px;">
+    <div id="api-management-section">
       <div class="flex-row-between">
         <div class="flex-row" style="align-items: center;">
           <span style="font-size: 12px; font-weight: bold; margin-right: 4px;">API Key Status:</span>

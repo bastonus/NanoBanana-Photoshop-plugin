@@ -34,6 +34,8 @@ async function initializeModels() {
     // fetchAvailableModels returns {image, text}.
     // Let's rely on fetchAvailableModels mostly, but fallback to GOOGLE_MODELS.
 
+    const savedModel = localStorage.getItem('nanobanana_selectedModel');
+
     Object.keys(imageModels).forEach((name, index) => {
         // Simple filter to avoid showing text models in Image Gen dropdown if they got mixed in
         if (name.includes('Gemini') && !name.includes('Image') && !name.includes('Nano Banana')) {
@@ -45,9 +47,28 @@ async function initializeModels() {
         const opt = document.createElement('sp-menu-item');
         opt.value = name;
         opt.textContent = name;
-        if (name.includes('Nano Banana Pro') || name.includes('Gemini 3 Pro') || (index === 0 && !select.value)) opt.selected = true;
+
+        // Selection Logic: Saved > Default Priority > First
+        if (savedModel && name === savedModel) {
+            opt.selected = true;
+        } else if (!savedModel && (name.includes('Nano Banana Pro') || name.includes('Gemini 3 Pro') || (index === 0 && !select.value))) {
+            opt.selected = true;
+        }
+
         select.appendChild(opt);
     });
+
+    // Add Change Listener for Persistence
+    const picker = document.getElementById('model-select-picker');
+    if (picker) {
+        picker.addEventListener('change', (e) => {
+            localStorage.setItem('nanobanana_selectedModel', e.target.value);
+        });
+        // Ensure picker value syncs if we set selected item manually (sometimes needed in UXP)
+        if (savedModel && picker.value !== savedModel) {
+            picker.value = savedModel;
+        }
+    }
 
     // Populate Refine Menu (Text Models)
     initializeRefineMenu();
@@ -67,17 +88,34 @@ function initializeRefineMenu() {
         textModels["Gemini 1.5 Flash"] = "models/gemini-1.5-flash";
     }
 
+    const savedRefineModel = localStorage.getItem('nanobanana_refineModel');
+
     Object.keys(textModels).forEach((name, index) => {
         const item = document.createElement('sp-menu-item');
         item.textContent = name;
         item.value = name;
-        // Set Gemini 3 Pro as default
-        if (name.includes('Gemini 3 Pro') || (index === 0 && !Object.keys(textModels).some(n => n.includes('Gemini 3 Pro')))) {
+
+        // Selection Logic: Saved > Default Priority > First
+        if (savedRefineModel && name === savedRefineModel) {
+            item.selected = true;
+        } else if (!savedRefineModel && (name.includes('Gemini 3 Pro') || (index === 0 && !Object.keys(textModels).some(n => n.includes('Gemini 3 Pro'))))) {
             item.selected = true;
         }
+
         // No click listener, we use picker change event
         refineMenu.appendChild(item);
     });
+
+    // Add Change Listener for Persistence and Sync
+    refinePicker.addEventListener('change', (e) => {
+        localStorage.setItem('nanobanana_refineModel', e.target.value);
+        updateName();
+    });
+
+    // Ensure picker value matches saved if exists
+    if (savedRefineModel && refinePicker.value !== savedRefineModel) {
+        refinePicker.value = savedRefineModel;
+    }
 
     // Handle Button Click (not picker change)
     const refineButton = document.getElementById('btn-refine-prompt');
@@ -107,7 +145,9 @@ function initializeRefineMenu() {
         }
     };
 
-    refinePicker.addEventListener('change', updateName);
+
+
+    // refinePicker.addEventListener('change', updateName); // Moved inside initializeRefineMenu to group with persistence logic
     // Initial update
     setTimeout(updateName, 100); // Small delay to ensure items populated
 }
@@ -286,28 +326,75 @@ async function getImageDataFromBase64(base64Data, sourceBounds) {
         // Safety check for document mode
         if (newDoc.mode !== "RGB") {
             // Attempt to convert or just warn? For temp doc, we can probably try to use it.
-            // But let's assume open created it correctly from png.
         }
 
         const firstLayer = newDoc.layers[0];
 
-        // Fit image logic: "Cover" or "Contain" instead of stretch?
-        // Current logic was: resize exact.
-        // IMPROVEMENT: Maintain aspect ratio?
-        // For now, sticking to resize to fill selection as per original, but user might want 'Cover'.
-        // Let's implement a simple cover resize.
+        // --- Smart Resizing Logic ---
+        // 1. Get dimensions
+        const docWidth = newDoc.width;
+        const docHeight = newDoc.height;
 
-        // Calculate aspect ratios
         const targetWidth = sourceBounds.right - sourceBounds.left;
         const targetHeight = sourceBounds.bottom - sourceBounds.top;
 
-        await newDoc.resizeImage(targetWidth, targetHeight); // Still stretching for now to match behavior, can improve later.
+        // 2. Calculate Scaling Factors
+        const scaleX = targetWidth / docWidth;
+        const scaleY = targetHeight / docHeight;
+
+        // 3. Check Distortion
+        // Distortion metric: How far is the aspect ratio change from 1?
+        // If scaleX and scaleY are similar, distortion is low.
+        const distortion = Math.abs((scaleX / scaleY) - 1);
+        const DISTORTION_THRESHOLD = 0.1; // 10% tolerance
+
+        let finalWidth, finalHeight;
+        let newBounds = sourceBounds; // Default to force-fit
+
+        if (distortion > DISTORTION_THRESHOLD) {
+            console.log(`[Smart Resize] High distortion detected (${(distortion * 100).toFixed(1)}%). Using 'Cover' strategy.`);
+
+            // "Cover" Strategy: Scale to the larger factor to fill the box completely without gaps
+            const scale = Math.max(scaleX, scaleY);
+
+            finalWidth = docWidth * scale;
+            finalHeight = docHeight * scale;
+
+            // Recalculate bounds to CENTER the new image over the selection
+            const centerX = sourceBounds.left + (targetWidth / 2);
+            const centerY = sourceBounds.top + (targetHeight / 2);
+
+            const newLeft = centerX - (finalWidth / 2);
+            const newTop = centerY - (finalHeight / 2);
+
+            newBounds = {
+                left: Math.round(newLeft),
+                top: Math.round(newTop),
+                right: Math.round(newLeft + finalWidth),
+                bottom: Math.round(newTop + finalHeight)
+            };
+
+        } else {
+            console.log(`[Smart Resize] Low distortion (${(distortion * 100).toFixed(1)}%). Using 'Force Fit' strategy.`);
+            // "Force Fit" Strategy: Stretch to target
+            finalWidth = targetWidth;
+            finalHeight = targetHeight;
+            newBounds = sourceBounds;
+        }
+
+        await newDoc.resizeImage(finalWidth, finalHeight);
 
         const imgObj = await imaging.getPixels({
             layerID: firstLayer.id,
             applyAlpha: true,
         });
-        return imgObj.imageData;
+
+        // Return BOTH data and the calculated bounds
+        return {
+            imageData: imgObj.imageData,
+            bounds: newBounds
+        };
+
     } finally {
         if (newDoc) {
             await newDoc.closeWithoutSaving();
@@ -347,7 +434,8 @@ async function pasteBackImages(base64Images, sourceBounds, channelName) {
     // Actually, let's just loop.
 
     for (const b64 of base64Images) {
-        const responseImageData = await getImageDataFromBase64(b64, sourceBounds);
+        // Destructure to get the smart bounds
+        const { imageData: responseImageData, bounds: placementBounds } = await getImageDataFromBase64(b64, sourceBounds);
 
         // Validate that we have an active document
         if (!app.activeDocument) {
@@ -364,7 +452,7 @@ async function pasteBackImages(base64Images, sourceBounds, channelName) {
         newLayer.name = "Generated Image " + new Date().toLocaleTimeString();
         await imaging.putPixels({
             imageData: responseImageData,
-            targetBounds: sourceBounds,
+            targetBounds: placementBounds, // Use the smart bounds
             layerID: newLayer.id,
         });
 
@@ -586,6 +674,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         const upscaleFactor = parseFloat(upscaleEl?.value || '1') || 1;
 
         const useLayerOnly = document.getElementById('use-layer-only')?.checked === true;
+        const useExactDimensions = document.getElementById('use-exact-dimensions')?.checked === true;
 
         // B. Capture Context from Photoshop (Blocking)
         let contextData;
@@ -603,6 +692,37 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
             }
             return; // Stop if capture failed
         }
+
+        // --- Append Dimensions if Requested ---
+        if (useExactDimensions && contextData && contextData.sourceBounds) {
+            const width = Math.round(contextData.sourceBounds.right - contextData.sourceBounds.left);
+            const height = Math.round(contextData.sourceBounds.bottom - contextData.sourceBounds.top);
+            prompt_text += ` (Size: ${width}x${height})`;
+        }
+
+        // --- NEW: Save to History ---
+        const historyManager = require('./history.js');
+        // We save BEFORE generation, or SHOULD we save ONLY IF successful? 
+        // User said "all 20 last prompt", implying attempted prompts.
+        // But usually history is "what I did". If it errors immediately, maybe not?
+        // Let's save it. Use cloned data to avoid mutation issues.
+        historyManager.add({
+            prompt: prompt_text, // Use the FULL refined/composed prompt or just the input? 
+            // User requirement: "all settings use". 
+            // If we store the composed prompt, we lose the original input if we want to restore *exactly* to UI.
+            // Let's store the RAW input prompt + the presets used separately.
+            rawPrompt: document.getElementById('prompt-input').value,
+            model: modelName,
+            variations: numImages,
+            upscale: upscaleFactor,
+            useForeground: useForeground,
+            useLayerOnly: useLayerOnly,
+            useExactDimensions: useExactDimensions,
+            presets: activePresets.map(p => ({ id: p.id, name: p.name, content: p.content }))
+        });
+
+        // Refresh UI if visible
+        renderHistoryList();
 
         if (!contextData) return;
 
@@ -699,6 +819,173 @@ async function initPresetsUI() {
 
     // 3. Initialize Add Preset Form Buttons
     initAddPresetForm();
+
+    // 4. Initialize History
+    initHistoryUI();
+}
+
+const historyManager = require('./history.js');
+
+async function initHistoryUI() {
+    await historyManager.load();
+    renderHistoryList();
+}
+
+function renderHistoryList() {
+    const list = document.getElementById('history-list');
+    if (!list) return;
+
+    const items = historyManager.getAll();
+    if (items.length === 0) {
+        list.innerHTML = `<div class="history-empty-state">No history yet.</div>`;
+        return;
+    }
+
+    list.innerHTML = items.map(item => {
+        // Format Timestamp
+        const date = new Date(item.timestamp);
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // Format Presets Tag
+        const presetTags = item.presets && item.presets.length > 0
+            ? item.presets.map(p => `<span class="history-tag">${p.name}</span>`).join('')
+            : '';
+
+        return `
+        <div class="history-item">
+            <div class="history-header">
+                <div class="history-prompt" title="${item.rawPrompt || item.prompt}">${item.rawPrompt || item.prompt}</div>
+            </div>
+            <div class="history-meta">
+                <span class="history-tag">${item.model?.replace('models/', '')}</span>
+                <span class="history-tag">x${item.variations}</span>
+                ${item.upscale > 1 ? `<span class="history-tag">Upscale x${item.upscale}</span>` : ''}
+                ${presetTags}
+                <span class="history-time">${timeStr}</span>
+            </div>
+            <div class="history-actions">
+                 <sp-button size="s" variant="secondary" class="btn-history-use" data-id="${item.id}">Use This</sp-button>
+                 <sp-action-button quiet size="s" class="btn-history-delete" data-id="${item.id}" title="Delete">
+                    <svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z" fill="currentColor"/></svg>
+                 </sp-action-button>
+            </div>
+        </div>
+        `;
+    }).join('');
+
+    // Attach Event Listeners
+    list.querySelectorAll('.btn-history-delete').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            historyManager.delete(id);
+            renderHistoryList();
+        });
+    });
+
+    list.querySelectorAll('.btn-history-use').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const id = e.currentTarget.dataset.id;
+            restoreHistoryItem(id);
+        });
+    });
+}
+
+function restoreHistoryItem(id) {
+    const item = historyManager.getAll().find(i => i.id === id);
+    if (!item) return;
+
+    // 1. Restore Inputs
+    const promptInput = document.getElementById('prompt-input');
+    if (promptInput) promptInput.value = item.rawPrompt || item.prompt || "";
+
+    const modelSelect = document.getElementById('model-select');
+    if (modelSelect) modelSelect.value = item.model;
+
+    // Update Picker if needed (spectrum sync)
+    const picker = document.getElementById('model-select-picker');
+    if (picker) picker.value = item.model;
+
+    const varInput = document.getElementById('variations-value');
+    if (varInput) varInput.value = item.variations;
+
+    const upscaleInput = document.getElementById('upscale-value');
+    if (upscaleInput) upscaleInput.value = item.upscale;
+
+    const fgCheck = document.getElementById('use-foreground');
+    if (fgCheck) fgCheck.checked = !!item.useForeground;
+
+    const layerCheck = document.getElementById('use-layer-only');
+    if (layerCheck) layerCheck.checked = !!item.useLayerOnly;
+
+    const exactDimCheck = document.getElementById('use-exact-dimensions');
+    if (exactDimCheck) exactDimCheck.checked = !!item.useExactDimensions;
+
+    // 2. Intelligent Preset Restoration
+    if (item.presets && item.presets.length > 0) {
+        // Deactivate all current first? Maybe cleaner.
+        presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
+
+        let missingPresets = [];
+
+        item.presets.forEach(histPreset => {
+            // Try to find by ID
+            let existing = presetManager.getAll().find(p => p.id === histPreset.id);
+
+            if (!existing) {
+                // Try to find by Name (fuzzy match)
+                existing = presetManager.getAll().find(p => p.name === histPreset.name);
+            }
+
+            if (existing) {
+                presetManager.toggleActive(existing.id, true);
+            } else {
+                // Deleted! "Intelligent behavior"
+                // Option: Append content to prompt?
+                // Option: Create temp preset? 
+                // Let's append to prompt with a note, or just append content.
+                missingPresets.push(histPreset);
+            }
+        });
+
+        if (missingPresets.length > 0) {
+            // Append missing preset content to prompt
+            // core.showAlert(`Restored settings. Note: ${missingPresets.length} presets were missing and have been appended to the prompt logic.`);
+            // Actually, appending to the PROMPT TEXT input is visible.
+            // Let's verify if the content is already there? No.
+
+            const appendText = missingPresets.map(p => p.content).join(' ');
+            // We don't want to permanently add it to the input if the user didn't mean to, 
+            // but for "Use This", we want to replicate the result. 
+            // So yes, adding to the prompt input is the safest way to ensure it's used if we can't restore the preset object.
+            if (promptInput) {
+                promptInput.value = promptInput.value + "\n[Restored Preset Content]: " + appendText;
+            }
+            console.log("Restored missing presets into prompt text:", missingPresets.map(p => p.name));
+        }
+    } else {
+        // No presets in history, so deactivate all current
+        presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
+    }
+
+    // Refresh Preset UI
+    renderPresetList();
+
+    // Expand relevant sections so user sees changes
+    // Expand context?
+    // Expand presets if we activated some?
+}
+
+// Helper to update Chevron Icon
+function updateChevron(element, isOpen) {
+    if (!element) return;
+    const ICON_RIGHT = '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 2 L7 5 L3 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+    const ICON_DOWN = '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>';
+
+    element.innerHTML = isOpen ? ICON_DOWN : ICON_RIGHT;
+
+    // Maintain class for potential other styling (though rotation is removed)
+    if (isOpen) element.classList.add('chevron-open');
+    else element.classList.remove('chevron-open');
 }
 
 function initMenuToggles() {
@@ -711,15 +998,15 @@ function initMenuToggles() {
         // Restore State
         const isExpanded = localStorage.getItem('nanobanana_preset_expanded') === 'true';
         presetWrapper.classList.toggle('hidden', !isExpanded);
-        presetChevron.classList.toggle('chevron-open', isExpanded);
-        console.log('[INIT] Preset menu initialized. Expanded:', isExpanded, 'Chevron classes:', presetChevron.classList.toString());
+        updateChevron(presetChevron, isExpanded);
+        console.log('[INIT] Preset menu initialized. Expanded:', isExpanded);
 
         // Click Listener
         presetHeader.addEventListener('click', () => {
             console.log('[CLICK] Preset header clicked');
             const isHiddenNow = presetWrapper.classList.toggle('hidden');
-            presetChevron.classList.toggle('chevron-open', !isHiddenNow);
-            console.log('[TOGGLE] Hidden:', isHiddenNow, 'Chevron classes:', presetChevron.classList.toString());
+            updateChevron(presetChevron, !isHiddenNow);
+            console.log('[TOGGLE] Hidden:', isHiddenNow);
 
             // Save new state (if NOT hidden, then it IS expanded)
             localStorage.setItem('nanobanana_preset_expanded', !isHiddenNow);
@@ -737,19 +1024,40 @@ function initMenuToggles() {
         // Restore State
         const isExpanded = localStorage.getItem('nanobanana_context_expanded') === 'true';
         contextWrapper.classList.toggle('hidden', !isExpanded);
-        contextChevron.classList.toggle('chevron-open', isExpanded);
-        console.log('[INIT] Context menu initialized. Expanded:', isExpanded, 'Chevron classes:', contextChevron.classList.toString());
+        updateChevron(contextChevron, isExpanded);
+        console.log('[INIT] Context menu initialized. Expanded:', isExpanded);
 
         // Click Listener
         contextHeader.addEventListener('click', () => {
             console.log('[CLICK] Context header clicked');
             const isHiddenNow = contextWrapper.classList.toggle('hidden');
-            contextChevron.classList.toggle('chevron-open', !isHiddenNow);
-            console.log('[TOGGLE] Hidden:', isHiddenNow, 'Chevron classes:', contextChevron.classList.toString());
+            updateChevron(contextChevron, !isHiddenNow);
+            console.log('[TOGGLE] Hidden:', isHiddenNow);
             localStorage.setItem('nanobanana_context_expanded', !isHiddenNow);
         });
     } else {
         console.error('[ERROR] Context toggle elements not found:', { contextHeader, contextWrapper, contextChevron });
+    }
+
+
+    // --- History Section ---
+    const historyHeader = document.getElementById('history-header-toggle');
+    const historyWrapper = document.getElementById('history-content-wrapper');
+    const historyChevron = document.getElementById('history-chevron');
+
+    if (historyHeader && historyWrapper && historyChevron) {
+        // Restore State
+        // Restore State
+        const isExpanded = localStorage.getItem('nanobanana_history_expanded') === 'true';
+        historyWrapper.classList.toggle('hidden', !isExpanded);
+        updateChevron(historyChevron, isExpanded);
+
+        // Click Listener
+        historyHeader.addEventListener('click', () => {
+            const isHiddenNow = historyWrapper.classList.toggle('hidden');
+            updateChevron(historyChevron, !isHiddenNow);
+            localStorage.setItem('nanobanana_history_expanded', !isHiddenNow);
+        });
     }
 }
 
@@ -766,7 +1074,7 @@ function initAddPresetForm() {
             // If section is collapsed, force expand it
             if (presetWrapper && presetWrapper.classList.contains('hidden')) {
                 presetWrapper.classList.remove('hidden');
-                if (presetChevron) presetChevron.classList.add('chevron-open');
+                if (presetChevron) updateChevron(presetChevron, true);
                 localStorage.setItem('nanobanana_preset_expanded', 'true');
             }
 
@@ -931,6 +1239,55 @@ function initPersistentUISettings() {
         useLayerCb.addEventListener('change', (e) => {
             localStorage.setItem('nanobanana_useLayerOnly', e.target.checked);
         });
+    }
+
+    const useExactDimCb = document.getElementById('use-exact-dimensions');
+    if (useExactDimCb) {
+        const savedExactDim = localStorage.getItem('nanobanana_useExactDimensions');
+        if (savedExactDim !== null) {
+            useExactDimCb.checked = (savedExactDim === 'true');
+        }
+        useExactDimCb.addEventListener('change', (e) => {
+            localStorage.setItem('nanobanana_useExactDimensions', e.target.checked);
+        });
+    }
+
+    // --- Variations Count ---
+    const variationsInput = document.getElementById('variations-value');
+    if (variationsInput) {
+        const savedVariations = localStorage.getItem('nanobanana_variations');
+        if (savedVariations) {
+            variationsInput.value = savedVariations;
+        }
+        // Save on change and input
+        const saveVariations = (e) => localStorage.setItem('nanobanana_variations', e.target.value);
+        variationsInput.addEventListener('change', saveVariations);
+        variationsInput.addEventListener('input', saveVariations); // Capture typing
+    }
+
+    // --- Upscale Factor ---
+    const upscaleInput = document.getElementById('upscale-value');
+    if (upscaleInput) {
+        const savedUpscale = localStorage.getItem('nanobanana_upscale');
+        if (savedUpscale) {
+            upscaleInput.value = savedUpscale;
+        }
+        // Save on change and input
+        const saveUpscale = (e) => localStorage.setItem('nanobanana_upscale', e.target.value);
+        upscaleInput.addEventListener('change', saveUpscale);
+        upscaleInput.addEventListener('input', saveUpscale);
+    }
+
+    // --- Prompt Persistence ---
+    const promptInput = document.getElementById('prompt-input');
+    if (promptInput) {
+        const savedPrompt = localStorage.getItem('nanobanana_prompt');
+        if (savedPrompt) {
+            promptInput.value = savedPrompt;
+        }
+        const savePrompt = (e) => localStorage.setItem('nanobanana_prompt', e.target.value);
+        promptInput.addEventListener('input', savePrompt); // 'input' handles keystrokes
+        promptInput.addEventListener('change', savePrompt);
     }
 }
 
