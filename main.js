@@ -728,7 +728,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
 
         // C. Show Loading & Generate (Non-Blocking)
         const btn = document.getElementById('prompt-submit');
-        const splitContainer = document.querySelector('.split-btn-container'); // Get container for animation
+        const splitContainer = document.querySelector('.split-btn-container.generate-btn'); // Get container for animation
 
         if (btn) {
             // btn.disabled = true; // User requested clickable

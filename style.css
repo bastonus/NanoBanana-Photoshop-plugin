@@ -831,9 +831,8 @@ sp-checkbox {
   flex-direction: column;
   gap: 0;
   /* Removed gap for separator lines */
-  max-height: 300px;
-  overflow-y: auto;
-  padding-right: 4px;
+  /* max-height removed to allow full expansion */
+  padding-right: 0;
 }
 
 .history-empty-state {
@@ -846,15 +845,11 @@ sp-checkbox {
 
 .history-item {
   background: transparent;
-  /* Removed background */
   border: none;
-  /* Removed border */
+  /* Standardized Separator */
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  /* Added Separator */
   border-radius: 0;
-  /* Removed radius */
-  padding: 12px 4px;
-  /* Adjusted padding */
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -914,7 +909,7 @@ sp-checkbox {
   justify-content: flex-end;
   gap: 8px;
   margin-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   padding-top: 8px;
 }
 
