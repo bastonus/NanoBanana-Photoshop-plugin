@@ -193,7 +193,21 @@ async function handleRefinePrompt(modelName, buttonElement) {
     // Show loading state on button (Custom Split Button)
     const originalButtonContent = buttonElement.innerHTML;
     // We are inside a .split-btn-action content, so we just replace content
-    buttonElement.innerHTML = '<span class="btn-text" style="font-size: 14px;">Refining...</span> <sp-progress-circle size="s" indeterminate style="width:12px; height:12px; margin-left: 6px;"></sp-progress-circle>';
+    buttonElement.innerHTML = '';
+    const refineSpan = document.createElement('span');
+    refineSpan.className = 'btn-text';
+    refineSpan.style.fontSize = '14px';
+    refineSpan.textContent = 'Refining...';
+
+    const refineSpinner = document.createElement('sp-progress-circle');
+    refineSpinner.setAttribute('size', 's');
+    refineSpinner.setAttribute('indeterminate', '');
+    refineSpinner.style.width = '12px';
+    refineSpinner.style.height = '12px';
+    refineSpinner.style.marginLeft = '6px';
+
+    buttonElement.appendChild(refineSpan);
+    buttonElement.appendChild(refineSpinner);
     const pointerEventsOriginal = buttonElement.style.pointerEvents;
     buttonElement.style.pointerEvents = 'none'; // Disable clicks
 
@@ -256,22 +270,56 @@ function renderSelectedFiles() {
         container.innerHTML = '';
         return;
     }
-    container.innerHTML = files
-        .map((file, index) => (
-            `<div class="preset-item my-xs">
-        <div class="preset-row-main">
-          <div class="preset-checkbox-container" style="padding-left: 8px;">
-             <span class="file-name" style="font-size: 12px; color: var(--uxp-host-text-color, #eaeaea);">${file.name}</span>
-          </div>
-          <div class="preset-actions">
-             <sp-action-button quiet size="S" aria-label="Remove ${file.name}" data-action="remove" data-index="${index}">
-               <svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z M12.9,16c-0.1,0.5-0.5,0.8-1,0.8H6.1c-0.5,0-0.9-0.4-1-0.8L4.1,5h9.9L12.9,16z" fill="currentColor"/></svg>
-             </sp-action-button>
-          </div>
-        </div>
-      </div>`
-        ))
-        .join('');
+    container.innerHTML = '';
+    files.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'preset-item my-xs';
+
+        const row = document.createElement('div');
+        row.className = 'preset-row-main';
+
+        const nameContainer = document.createElement('div');
+        nameContainer.className = 'preset-checkbox-container';
+        nameContainer.style.paddingLeft = '8px';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-name';
+        nameSpan.style.fontSize = '12px';
+        nameSpan.style.color = 'var(--uxp-host-text-color, #eaeaea)';
+        nameSpan.textContent = file.name;
+
+        nameContainer.appendChild(nameSpan);
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'preset-actions';
+
+        const removeBtn = document.createElement('sp-action-button');
+        removeBtn.setAttribute('quiet', '');
+        removeBtn.setAttribute('size', 'S');
+        removeBtn.setAttribute('aria-label', `Remove ${file.name}`);
+        removeBtn.setAttribute('data-action', 'remove');
+        removeBtn.setAttribute('data-index', index.toString());
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('slot', 'icon');
+        svg.setAttribute('viewBox', '0 0 18 18');
+        svg.setAttribute('width', '12');
+        svg.setAttribute('height', '12');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z M12.9,16c-0.1,0.5-0.5,0.8-1,0.8H6.1c-0.5,0-0.9-0.4-1-0.8L4.1,5h9.9L12.9,16z');
+        path.setAttribute('fill', 'currentColor');
+
+        svg.appendChild(path);
+        removeBtn.appendChild(svg);
+
+        actionsContainer.appendChild(removeBtn);
+
+        row.appendChild(nameContainer);
+        row.appendChild(actionsContainer);
+        item.appendChild(row);
+        container.appendChild(item);
+    });
 
     container.onclick = (e) => {
         const btn = e.target.closest('sp-action-button[data-action="remove"]');
@@ -288,7 +336,6 @@ function renderSelectedFiles() {
 
 document.getElementById('reference-images').addEventListener('click', async () => {
     const files = await storage.localFileSystem.getFileForOpening({
-        types: storage.fileTypes.images,
         allowMultiple: true
     });
     window.selectedFiles = files;
@@ -409,6 +456,24 @@ async function getImageDataFromBase64(base64Data, sourceBounds) {
     }
 }
 
+function getMimeType(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    const map = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+        'bmp': 'image/bmp',
+        'tiff': 'image/tiff',
+        'pdf': 'application/pdf',
+        'txt': 'text/plain',
+        'json': 'application/json',
+        'csv': 'text/csv'
+    };
+    return map[ext] || 'application/octet-stream';
+}
+
 async function getSelectedFilesBlobs() {
     if (!window.selectedFiles || !window.selectedFiles.length) {
         return null;
@@ -416,7 +481,7 @@ async function getSelectedFilesBlobs() {
     const out = [];
     for (const file of window.selectedFiles) {
         const arrayBuffer = await file.read({ format: storage.formats.binary });
-        const contentType = file.name.endsWith('.jpg') ? 'image/jpeg' : 'image/png';
+        const contentType = getMimeType(file.name);
         out.push(new Blob([arrayBuffer], { type: contentType }));
     }
     return out;
@@ -731,8 +796,24 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         const splitContainer = document.querySelector('.split-btn-container.generate-btn'); // Get container for animation
 
         if (btn) {
-            // btn.disabled = true; // User requested clickable
-            btn.innerHTML = `<span class="btn-text">Generating...</span> <sp-progress-circle id="spinner" size="s" indeterminate style="margin-left: 8px;"></sp-progress-circle>`;
+            // Update Text
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = 'Generating...';
+
+            // Show Spinner
+            const spinner = btn.querySelector('sp-progress-circle') || document.getElementById('spinner');
+            if (spinner) {
+                spinner.style.display = 'inline-block';
+                spinner.style.marginLeft = '8px';
+            } else {
+                // Fallback if spinner missing (should not happen if HTML is correct)
+                const newSpinner = document.createElement('sp-progress-circle');
+                newSpinner.id = 'spinner';
+                newSpinner.setAttribute('size', 's');
+                newSpinner.setAttribute('indeterminate', '');
+                newSpinner.style.marginLeft = '8px';
+                btn.appendChild(newSpinner);
+            }
         }
         if (splitContainer) splitContainer.classList.add('loading');
 
@@ -743,7 +824,8 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
                 progressCount++;
             }
             if (btn && total > 1) {
-                btn.innerHTML = `<span class="btn-text">Generating ${progressCount}/${total}...</span> <sp-progress-circle id="spinner" size="s" indeterminate style="margin-left: 8px;"></sp-progress-circle>`;
+                const btnText = btn.querySelector('.btn-text');
+                if (btnText) btnText.textContent = `Generating ${progressCount}/${total}...`;
             }
         };
 
@@ -764,8 +846,13 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
             return;
         } finally {
             if (btn) {
-                // btn.disabled = false;
-                btn.innerHTML = `<span class="btn-text">Generate</span> <sp-progress-circle id="spinner" size="s" indeterminate style="display:none; margin-left: 8px;"></sp-progress-circle>`;
+                // Reset Text
+                const btnText = btn.querySelector('.btn-text');
+                if (btnText) btnText.textContent = 'Generate';
+
+                // Hide Spinner
+                const spinner = btn.querySelector('sp-progress-circle') || document.getElementById('spinner');
+                if (spinner) spinner.style.display = 'none';
             }
             if (splitContainer) splitContainer.classList.remove('loading');
         }
@@ -836,57 +923,122 @@ function renderHistoryList() {
     if (!list) return;
 
     const items = historyManager.getAll();
+    // Clear list safely
+    while (list.firstChild) {
+        list.removeChild(list.firstChild);
+    }
+
     if (items.length === 0) {
-        list.innerHTML = `<div class="history-empty-state">No history yet.</div>`;
+        const emptyState = document.createElement('div');
+        emptyState.className = 'history-empty-state';
+        emptyState.textContent = 'No history yet.';
+        list.appendChild(emptyState);
         return;
     }
 
-    list.innerHTML = items.map(item => {
-        // Format Timestamp
+    items.forEach(item => {
+        // Wrapper
+        const itemDiv = document.createElement('div');
+        itemDiv.className = 'history-item';
+
+        // Header (Prompt)
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'history-header';
+
+        const promptDiv = document.createElement('div');
+        promptDiv.className = 'history-prompt';
+        const promptText = item.rawPrompt || item.prompt;
+        promptDiv.title = promptText;
+        promptDiv.textContent = promptText;
+
+        headerDiv.appendChild(promptDiv);
+        itemDiv.appendChild(headerDiv);
+
+        // Metadata Tags
+        const metaDiv = document.createElement('div');
+        metaDiv.className = 'history-meta';
+
+        // Helper to create tag
+        const createTag = (text) => {
+            const span = document.createElement('span');
+            span.className = 'history-tag';
+            span.textContent = text;
+            return span;
+        };
+
+        // Model Tag
+        if (item.model) {
+            metaDiv.appendChild(createTag(item.model.replace('models/', '')));
+        }
+
+        // Variations Tag
+        metaDiv.appendChild(createTag(`x${item.variations}`));
+
+        // Upscale Tag
+        if (item.upscale > 1) {
+            metaDiv.appendChild(createTag(`Upscale x${item.upscale}`));
+        }
+
+        // Preset Tags
+        if (item.presets && item.presets.length > 0) {
+            item.presets.forEach(p => {
+                metaDiv.appendChild(createTag(p.name));
+            });
+        }
+
+        // Time Tag
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'history-time';
         const date = new Date(item.timestamp);
-        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        metaDiv.appendChild(timeSpan);
 
-        // Format Presets Tag
-        const presetTags = item.presets && item.presets.length > 0
-            ? item.presets.map(p => `<span class="history-tag">${p.name}</span>`).join('')
-            : '';
+        itemDiv.appendChild(metaDiv);
 
-        return `
-        <div class="history-item">
-            <div class="history-header">
-                <div class="history-prompt" title="${item.rawPrompt || item.prompt}">${item.rawPrompt || item.prompt}</div>
-            </div>
-            <div class="history-meta">
-                <span class="history-tag">${item.model?.replace('models/', '')}</span>
-                <span class="history-tag">x${item.variations}</span>
-                ${item.upscale > 1 ? `<span class="history-tag">Upscale x${item.upscale}</span>` : ''}
-                ${presetTags}
-                <span class="history-time">${timeStr}</span>
-            </div>
-            <div class="history-actions">
-                 <sp-button size="s" variant="secondary" class="btn-history-use" data-id="${item.id}">Use This</sp-button>
-                 <sp-action-button quiet size="s" class="btn-history-delete" data-id="${item.id}" title="Delete">
-                    <svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z" fill="currentColor"/></svg>
-                 </sp-action-button>
-            </div>
-        </div>
-        `;
-    }).join('');
+        // Actions
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'history-actions';
 
-    // Attach Event Listeners
-    list.querySelectorAll('.btn-history-delete').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const id = e.currentTarget.dataset.id;
-            historyManager.delete(id);
+        // Use This Button
+        const useBtn = document.createElement('sp-button');
+        useBtn.setAttribute('size', 's');
+        useBtn.setAttribute('variant', 'secondary');
+        useBtn.className = 'btn-history-use';
+        useBtn.textContent = 'Use This';
+        useBtn.addEventListener('click', () => {
+            restoreHistoryItem(item.id);
+        });
+        actionsDiv.appendChild(useBtn);
+
+        // Delete Button
+        const delBtn = document.createElement('sp-action-button');
+        delBtn.setAttribute('quiet', '');
+        delBtn.setAttribute('size', 's');
+        delBtn.className = 'btn-history-delete';
+        delBtn.setAttribute('title', 'Delete');
+
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('slot', 'icon');
+        svg.setAttribute('viewBox', '0 0 18 18');
+        svg.setAttribute('width', '12');
+        svg.setAttribute('height', '12');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', 'M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z');
+        path.setAttribute('fill', 'currentColor');
+
+        svg.appendChild(path);
+        delBtn.appendChild(svg);
+
+        delBtn.addEventListener('click', () => {
+            historyManager.delete(item.id);
             renderHistoryList();
         });
-    });
 
-    list.querySelectorAll('.btn-history-use').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const id = e.currentTarget.dataset.id;
-            restoreHistoryItem(id);
-        });
+        actionsDiv.appendChild(delBtn);
+        itemDiv.appendChild(actionsDiv);
+
+        list.appendChild(itemDiv);
     });
 }
 
@@ -976,12 +1128,36 @@ function restoreHistoryItem(id) {
 }
 
 // Helper to update Chevron Icon
+// Helper to update Chevron Icon
 function updateChevron(element, isOpen) {
     if (!element) return;
-    const ICON_RIGHT = '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M3 2 L7 5 L3 8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>';
-    const ICON_DOWN = '<svg viewBox="0 0 10 10" width="10" height="10"><path d="M2 3 L5 7 L8 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg>';
 
-    element.innerHTML = isOpen ? ICON_DOWN : ICON_RIGHT;
+    // Clear existing content
+    while (element.firstChild) {
+        element.removeChild(element.firstChild);
+    }
+
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 10 10');
+    svg.setAttribute('width', '10');
+    svg.setAttribute('height', '10');
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+    // Select path data based on state
+    // Down (Open): M2 3 L5 7 L8 3
+    // Right (Closed): M3 2 L7 5 L3 8
+    const d = isOpen ? 'M2 3 L5 7 L8 3' : 'M3 2 L7 5 L3 8';
+
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'currentColor');
+    path.setAttribute('stroke-width', '1.5');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+
+    svg.appendChild(path);
+    element.appendChild(svg);
 
     // Maintain class for potential other styling (though rotation is removed)
     if (isOpen) element.classList.add('chevron-open');
@@ -1143,13 +1319,33 @@ function renderPresetList() {
         const editBtn = document.createElement('sp-action-button');
         editBtn.quiet = true;
         editBtn.size = "S";
-        editBtn.innerHTML = '<svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M16.5,5.5L12.5,1.5c-0.7-0.7-1.8-0.7-2.5,0L1,10.5v6h6l9-9C17.2,7.3,17.2,6.2,16.5,5.5z M6.2,15H2.5v-3.7L10,3.8L13.7,7.5L6.2,15z" fill="currentColor"/></svg>';
+
+        const svgEdit = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgEdit.setAttribute('slot', 'icon');
+        svgEdit.setAttribute('viewBox', '0 0 18 18');
+        svgEdit.setAttribute('width', '12');
+        svgEdit.setAttribute('height', '12');
+        const pathEdit = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathEdit.setAttribute('d', 'M16.5,5.5L12.5,1.5c-0.7-0.7-1.8-0.7-2.5,0L1,10.5v6h6l9-9C17.2,7.3,17.2,6.2,16.5,5.5z M6.2,15H2.5v-3.7L10,3.8L13.7,7.5L6.2,15z');
+        pathEdit.setAttribute('fill', 'currentColor');
+        svgEdit.appendChild(pathEdit);
+        editBtn.appendChild(svgEdit);
 
         // Delete Button (SVG)
         const delBtn = document.createElement('sp-action-button');
         delBtn.quiet = true;
         delBtn.size = "S";
-        delBtn.innerHTML = '<svg slot="icon" viewBox="0 0 18 18" width="12" height="12"><path d="M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z M12.9,16c-0.1,0.5-0.5,0.8-1,0.8H6.1c-0.5,0-0.9-0.4-1-0.8L4.1,5h9.9L12.9,16z" fill="currentColor"/></svg>';
+
+        const svgDel = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svgDel.setAttribute('slot', 'icon');
+        svgDel.setAttribute('viewBox', '0 0 18 18');
+        svgDel.setAttribute('width', '12');
+        svgDel.setAttribute('height', '12');
+        const pathDel = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathDel.setAttribute('d', 'M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z M12.9,16c-0.1,0.5-0.5,0.8-1,0.8H6.1c-0.5,0-0.9-0.4-1-0.8L4.1,5h9.9L12.9,16z');
+        pathDel.setAttribute('fill', 'currentColor');
+        svgDel.appendChild(pathDel);
+        delBtn.appendChild(svgDel);
 
         delBtn.addEventListener('click', () => {
             presetManager.delete(p.id);

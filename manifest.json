@@ -5,7 +5,7 @@
   "main": "index.html",
   "host": {
     "app": "PS",
-    "minVersion": "25.0.0"
+    "minVersion": "22.0.0"
   },
   "manifestVersion": 5,
   "requiredPermissions": {
@@ -47,32 +47,20 @@
       },
       "icons": [
         {
-          "width": 32,
-          "height": 32,
-          "path": "icons/dark@2x.png",
-          "scale": [
-            1,
-            2
-          ],
-          "theme": [
-            "dark",
-            "darkest"
-          ],
-          "species": [
-            "generic"
-          ]
-        },
-        {
-          "width": 32,
-          "height": 32,
-          "path": "icons/dark@2x.png",
+          "width": 23,
+          "height": 23,
+          "path": "icons/gemini.svg",
           "scale": [
             1,
             2
           ],
           "theme": [
             "lightest",
-            "light"
+            "light",
+            "medium",
+            "dark",
+            "darkest",
+            "all"
           ],
           "species": [
             "generic"
@@ -86,21 +74,23 @@
   ],
   "icons": [
     {
-      "width": 23,
-      "height": 23,
-      "path": "icons/pluginIcon.png",
+      "width": 24,
+      "height": 24,
+      "path": "icons/gemini.svg",
       "scale": [
         1,
-        1.25,
-        1.5,
         2
       ],
       "theme": [
-        "darkest",
-        "dark",
-        "light",
         "lightest",
+        "light",
+        "medium",
+        "dark",
+        "darkest",
         "all"
+      ],
+      "species": [
+        "generic"
       ]
     }
   ]
