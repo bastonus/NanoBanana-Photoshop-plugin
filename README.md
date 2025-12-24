@@ -10,7 +10,16 @@
 
 Designed for professional workflows, it seamlessly integrates into Photoshop's panel system, allowing you to generate, refine, and iterate on assets without ever leaving your canvas.
 
+
 ---
+
+## 📚 Documentation
+
+*   **[📖 User Manual](UserManual.md)**: A complete guide to using all the features of Nano Banana.
+*   **[🔑 API Configuration Guide](ConfigureAPI.md)**: Step-by-step instructions on how to get your free Google API Key.
+
+---
+
 
 ## ✨ Features (Always Updated)
 
@@ -67,9 +76,9 @@ While Adobe Firefly is a great tool integrated into Photoshop, **Nano Banana** o
 Nano Banana is designed with **Privacy** and **Performance** in mind. We do not proxy your requests. You connect **Directly** to Google.
 
 ### How to Setup
-1.  **Get your Key**: Go to [Google AI Studio](https://aistudio.google.com/) and create a free API Key.
-2.  **Enter in Plugin**: Paste the key into the Nano Banana "Google AI Studio Setup" screen.
-3.  **Status Check**: The plugin will instantly verify the key. Look for the green "active" dot.
+1.  **Get your Key**: Create a free API Key at [Google AI Studio](https://aistudio.google.com/).
+2.  **Configure**: Follow our detailed **[API Configuration Guide](ConfigureAPI.md)** for step-by-step instructions.
+3.  **Status Check**: The plugin will verify the key instantly.
 
 ![Google AI Studio Direct Setup](Google-ai-studio-direct-setup.png)
 
