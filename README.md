@@ -2,9 +2,10 @@
 
 **Unleash the power of Google's Gemini Models directly inside Adobe Photoshop.**
 
-![Nano Banana Preview](Preview.png)
+![Nano Banana Preview](doc-assets/demo.gif)
 
 ## 🚀 Overview
+
 
 **Nano Banana** is a cutting-edge plugin that bridges the gap between Adobe Photoshop and Google's most advanced AI models. Unlike standard integrations, Nano Banana gives you **direct control** over the generative process, leveraging the raw power of Gemini for image generation, prompt refinement, and upscaling.
 
@@ -23,7 +24,8 @@ Designed for professional workflows, it seamlessly integrates into Photoshop's p
 
 ## ✨ Features (Always Updated)
 
-![Nano Banana Features](features.png)
+
+![Nano Banana Features](doc-assets/features.png)
 
 Nano Banana is built to be a robust, professional-grade tool. Here is what makes it special:
 

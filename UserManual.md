@@ -10,6 +10,8 @@ Welcome to the complete guide for using the Nano Banana Photoshop Plugin.
 5.  [Using Reference Images](#using-reference-images)
 6.  [Presets & History](#presets--history)
 
+![Nano Banana Demo](doc-assets/demo.gif)
+
 ---
 
 ## Interface Overview
@@ -23,20 +25,18 @@ The Nano Banana interface is designed to be clean and integrated with Photoshop.
 
 ## Generating Images
 
-### 1. Enter a Prompt
-Type your description into the main text box. Be descriptive!
-*   *Example: "A futuristic city with neon lights, cyberpunk style, rainy night"*
+### 1. Make a Selection & Enter Prompt
+Use the Rectangular Marquee tool to select the area you want to generate in. Then, type your prompt (e.g., "Add headphones to the robot").
 
-### 2. Choose Variations
-Use the number counter (next to the Generate button) to select how many images you want to generate at once (1 to 8).
-*   *Tip: Generating 4 variations is executed in parallel and allows you to pick the best composition.*
+![Selection and Prompt](doc-assets/Usage-Gen-Step1-Selection.jpg)
 
-### 3. Click Generate
-Hit the **"Generate"** button. A loading spinner will appear.
-Once finished, the images will be added to your Photoshop document as new layers.
+### 2. Choose Variations & Generate
+Select how many variations you want (e.g., 4) and click **"Generate"**.
 
-<!-- PLACEHOLDER: Screenshot of the Prompt inputs and Generate button -->
-<!-- ![Prompt and Generate Section](path/to/generate_section.png) -->
+### 3. View Results
+The generated images will appear as new layers.
+
+![Generation Result](doc-assets/Usage-Gen-Step2-Result.jpg)
 
 ---
 
@@ -44,12 +44,21 @@ Once finished, the images will be added to your Photoshop document as new layers
 
 Struggling to find the right words? Let Gemini help.
 
-1.  **Type a basic idea**: e.g., "Cat in space".
-2.  **Select a Model**: Use the dropdown next to the "Refine prompt" button to choose which Gemini model to use (e.g., Gemini 1.5 Pro, Gemini 1.5 Flash).
-3.  **Click "Refine prompt"**: The plugin will rewrite your prompt into a detailed, artistic description optimized for image generation.
+1.  **Enter a Basic Idea**: Type a simple description of what you want (e.g., "a robot taking a bath").
+    
+    ![Basic Input](doc-assets/Usage-Refine-Step1-Input.png)
 
-<!-- PLACEHOLDER: Screenshot of the Refine Prompt button and result -->
-<!-- ![Refine Prompt Feature](path/to/refine_feature.png) -->
+2.  **Select a Model (Optional)**: Click the dropdown next to the "Refine prompt" button to choose which Gemini model to use for the rewriting task (e.g., Gemini 3 Pro).
+
+    ![Select Model](doc-assets/Usage-Refine-Step2-ModelSelect.png)
+
+3.  **Click "Refine prompt"**: The button will show a "Refining..." state while it processes.
+
+    ![Refining State](doc-assets/Usage-Refine-Step3-Process.png)
+
+4.  **Get Results**: The plugin will replace your text with a detailed, artistically optimized prompt safe for generation.
+
+    ![Refined Result](doc-assets/Usage-Refine-Step4-Result.png)
 
 ---
 
