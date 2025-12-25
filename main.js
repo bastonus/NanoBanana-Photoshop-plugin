@@ -1,6 +1,7 @@
 const { app, imaging, core } = require('photoshop');
 // storage is already defined in auth.js so we do not import it since we're on global scope
 const { generateImageGoogle, fetchAvailableModels } = require('./googleAiSdk.js');
+const { initChat, populateChatModels } = require('./chat.js');
 
 // Helper to get API key
 async function getApiKey() {
@@ -72,6 +73,9 @@ async function initializeModels() {
 
     // Populate Refine Menu (Text Models)
     initializeRefineMenu();
+
+    // Sync Chat Models
+    populateChatModels();
 }
 
 function initializeRefineMenu() {
@@ -93,7 +97,7 @@ function initializeRefineMenu() {
     Object.keys(textModels).forEach((name, index) => {
         const item = document.createElement('sp-menu-item');
         item.textContent = name;
-        item.value = name;
+        item.value = textModels[name];
 
         // Selection Logic: Saved > Default Priority > First
         if (savedRefineModel && name === savedRefineModel) {
@@ -474,18 +478,67 @@ function getMimeType(filename) {
     return map[ext] || 'application/octet-stream';
 }
 
+// Updated to support Mixed Types (StorageEntry & BlobWrappers)
 async function getSelectedFilesBlobs() {
     if (!window.selectedFiles || !window.selectedFiles.length) {
         return null;
     }
     const out = [];
     for (const file of window.selectedFiles) {
-        const arrayBuffer = await file.read({ format: storage.formats.binary });
-        const contentType = getMimeType(file.name);
-        out.push(new Blob([arrayBuffer], { type: contentType }));
+        if (file.isBlob && file.blob) {
+            // Already a Blob (Selection Capture)
+            out.push(file.blob);
+        } else if (file.read) {
+            // Storage Entry (File on disk)
+            const arrayBuffer = await file.read({ format: storage.formats.binary });
+            const contentType = getMimeType(file.name);
+            out.push(new Blob([arrayBuffer], { type: contentType }));
+        }
     }
     return out;
 };
+
+
+// Handle "Add Selection" Button
+const btnAddSelection = document.getElementById('btn-add-selection');
+if (btnAddSelection) {
+    btnAddSelection.addEventListener('click', async () => {
+        try {
+            // Reuse captureSelectionForRefine logic as it does exactly what we want (get selection -> blob)
+            // But we need to handle "Active Document" check first
+            if (!app.activeDocument) {
+                await core.showAlert("Please open a document first.");
+                return;
+            }
+
+            const blob = await core.executeAsModal(
+                captureSelectionForRefine,
+                { commandName: "Capturing Selection..." }
+            );
+
+            if (blob) {
+                if (!window.selectedFiles) window.selectedFiles = [];
+
+                // Create a Wrapper Object that mimics the "file" interface needed for UI
+                const newFileWrapper = {
+                    name: `Selection ${window.selectedFiles.length + 1}.jpg`,
+                    isBlob: true,
+                    blob: blob,
+                    // Mock properties if needed
+                };
+
+                window.selectedFiles.push(newFileWrapper);
+                renderSelectedFiles();
+            } else {
+                // captureSelectionForRefine returns null/warns if no selection or empty
+                await core.showAlert("No selection found. Please make a selection area.");
+            }
+        } catch (e) {
+            console.error("Add Selection Failed:", e);
+            await core.showAlert("Failed to add selection: " + e.message);
+        }
+    });
+}
 
 async function pasteBackImages(base64Images, sourceBounds, channelName) {
     const { batchPlay } = require('photoshop').action;
@@ -1484,6 +1537,15 @@ function initPersistentUISettings() {
         const savePrompt = (e) => localStorage.setItem('nanobanana_prompt', e.target.value);
         promptInput.addEventListener('input', savePrompt); // 'input' handles keystrokes
         promptInput.addEventListener('change', savePrompt);
+
+        // Trigger Generate on Enter
+        promptInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const btn = document.getElementById('prompt-submit');
+                if (btn) btn.click();
+            }
+        });
     }
 }
 
@@ -1573,4 +1635,5 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     initPersistentUISettings();
     initSpinnerControls();
+    initChat();
 });

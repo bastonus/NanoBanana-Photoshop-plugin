@@ -17,6 +17,29 @@ window.GOOGLE_TEXT_MODELS = {
 };
 
 async function fetchAvailableModels(apiKey) {
+    const CACHE_KEY = 'nanobanana_model_cache';
+    const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
+    // 1. Check Cache
+    try {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Date.now() - parsed.timestamp < CACHE_DURATION) {
+                console.log("Using cached models");
+                const data = parsed.data;
+                // Update global maps
+                MODEL_IDS = { ...MODEL_IDS, ...data.image };
+                window.GOOGLE_MODELS = MODEL_IDS;
+                window.GOOGLE_TEXT_MODELS = { ...window.GOOGLE_TEXT_MODELS, ...data.text };
+                return data;
+            }
+        }
+    } catch (e) {
+        console.warn("Cache read failed", e);
+    }
+
+    // 2. Fetch from API
     try {
         const response = await fetch(`${BASE_URL}models?key=${apiKey}`);
         if (!response.ok) return null;
@@ -44,7 +67,20 @@ async function fetchAvailableModels(apiKey) {
             MODEL_IDS = { ...MODEL_IDS, ...models };
             window.GOOGLE_MODELS = MODEL_IDS;
             window.GOOGLE_TEXT_MODELS = { ...window.GOOGLE_TEXT_MODELS, ...textModels };
-            return { image: models, text: window.GOOGLE_TEXT_MODELS };
+
+            const result = { image: models, text: window.GOOGLE_TEXT_MODELS };
+
+            // 3. Save to Cache
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify({
+                    timestamp: Date.now(),
+                    data: result
+                }));
+            } catch (e) {
+                console.warn("Cache write failed", e);
+            }
+
+            return result;
         }
     } catch (e) {
         console.warn("Failed to fetch models:", e);
@@ -114,7 +150,17 @@ async function generateImagen(apiKey, modelId, prompt, options) {
 
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`Google AI API Error(${response.status}): ${errorText} `);
+            let friendlyMessage = `Google AI API Error(${response.status}): ${errorText}`;
+
+            if (response.status === 429) {
+                friendlyMessage = "Quota exceeded (429). You may have run out of free requests for the minute or day.";
+            } else if (response.status === 404) {
+                friendlyMessage = "Model not found (404). This model may not be available with your current API key or region.";
+            }
+
+            const error = new Error(friendlyMessage);
+            error.status = response.status;
+            throw error;
         }
 
         const data = await response.json();
@@ -136,7 +182,7 @@ async function generateImagen(apiKey, modelId, prompt, options) {
     }
 }
 
-// Helper: Retry with exponential backoff
+// Helper: Retry with exponential backoff, respecting error status
 async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
     let lastError;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -144,6 +190,15 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
             return await fn();
         } catch (error) {
             lastError = error;
+
+            // CRITICAL: Stop retrying on client errors (4xx) except maybe 408 (Timeout) or 429 if we wanted to wait, 
+            // but for 429 Quota Exceeded on free tier, waiting 1s won't help enough and burns retries.
+            // 404 (Not Found), 400 (Bad Request), 401 (Auth), 403 (Forbidden) should NOT be retried.
+            if (error.status && (error.status >= 400 && error.status < 500)) {
+                console.warn(`Aborting retry due to status ${error.status}: ${error.message}`);
+                throw error; // Fail immediately
+            }
+
             if (attempt < maxRetries - 1) {
                 const delay = initialDelay * Math.pow(2, attempt);
                 console.log(`Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms...`);
@@ -193,7 +248,15 @@ async function generateGemini(apiKey, modelId, prompt, options) {
 
             if (!response.ok) {
                 const errorText = await response.text();
-                const error = new Error(`Gemini API Error (${response.status}): ${errorText}`);
+                let friendlyMessage = `Gemini API Error (${response.status}): ${errorText}`;
+
+                if (response.status === 429) {
+                    friendlyMessage = "Quota exceeded (429). Please wait a moment or check your plan.";
+                } else if (response.status === 404) {
+                    friendlyMessage = "Model not found (404).";
+                }
+
+                const error = new Error(friendlyMessage);
                 error.status = response.status;
                 throw error;
             }
@@ -287,8 +350,72 @@ function blobToBase64(blob) {
     });
 }
 
+async function generateChatGoogle(apiKey, modelId, history, systemInstruction) {
+    const url = `${BASE_URL}${modelId}:generateContent?key=${apiKey}`;
+
+    const payload = {
+        contents: history,
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+            topK: 40,
+            topP: 0.95
+        },
+        safetySettings: [
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_ONLY_HIGH" },
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_ONLY_HIGH" }
+        ]
+    };
+
+    if (systemInstruction) {
+        payload.systemInstruction = {
+            parts: [{ text: systemInstruction }]
+        };
+    }
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        let friendlyMessage = `Chat API Error (${response.status}): ${errorText}`;
+
+        if (response.status === 429) {
+            friendlyMessage = "Chat Quota exceeded (429). Please wait a moment or check your plan.";
+        } else if (response.status === 404) {
+            friendlyMessage = "Chat Model not found (404).";
+        }
+
+        const error = new Error(friendlyMessage);
+        error.status = response.status;
+        throw error;
+    }
+
+    const data = await response.json();
+
+    if (data.candidates && data.candidates.length > 0) {
+        const candidate = data.candidates[0];
+        if (candidate.content && candidate.content.parts && candidate.content.parts.length > 0) {
+            return candidate.content.parts[0].text;
+        }
+    }
+
+    // Check for safety finish reason
+    if (data.promptFeedback && data.promptFeedback.blockReason) {
+        throw new Error(`Safety Block: ${data.promptFeedback.blockReason}`);
+    }
+
+    throw new Error('No valid response from Chat API');
+}
+
 module.exports = {
     generateImageGoogle,
     fetchAvailableModels,
+    generateChatGoogle,
     MODEL_IDS
 };
