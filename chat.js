@@ -488,8 +488,11 @@ function switchView(viewId) {
     });
 
     // Update Views
+    // Update Views
     document.getElementById('generator-view').classList.add('hidden');
     document.getElementById('chat-view').classList.add('hidden');
+    const gridView = document.getElementById('grid-view');
+    if (gridView) gridView.classList.add('hidden');
 
     // Manage Main Visibility logic from original index.html
     const mainSection = document.getElementById('main');

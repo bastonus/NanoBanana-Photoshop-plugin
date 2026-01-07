@@ -171,16 +171,26 @@ async function generateGemini(apiKey, modelId, prompt, options) {
                 }
             };
 
-            // Add image input if present (for image editing/analysis)
+            // Add image input (supporting multiple images)
+            const inputImages = [];
             if (options.input_image_blob) {
-                // Convert blob to base64
-                const base64Data = await blobToBase64(options.input_image_blob);
-                payload.contents[0].parts.push({
-                    inline_data: {
-                        mime_type: options.input_image_blob.type,
-                        data: base64Data
-                    }
-                });
+                inputImages.push(options.input_image_blob);
+            }
+            if (options.input_images && Array.isArray(options.input_images)) {
+                options.input_images.forEach(img => inputImages.push(img));
+            }
+
+            if (inputImages.length > 0) {
+                // Convert all blobs to base64
+                for (const blob of inputImages) {
+                    const base64Data = await blobToBase64(blob);
+                    payload.contents[0].parts.push({
+                        inline_data: {
+                            mime_type: blob.type || 'image/jpeg',
+                            data: base64Data
+                        }
+                    });
+                }
             }
 
             const response = await fetch(url, {

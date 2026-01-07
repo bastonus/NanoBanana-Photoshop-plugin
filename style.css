@@ -467,7 +467,9 @@ button {
   /* Darker blue on hover */
 }
 
-.split-btn-container:hover #variations-value {
+.split-btn-container:hover #variations-value,
+.split-btn-container:hover #grid-rows,
+.split-btn-container:hover #grid-cols {
   background-color: #024491 !important;
 }
 
@@ -543,7 +545,9 @@ button {
   height: 100%;
 }
 
-#variations-value {
+#variations-value,
+#grid-rows,
+#grid-cols {
   background: #0265DC !important;
   background-color: #0265DC !important;
   background-image: none !important;
@@ -566,7 +570,11 @@ button {
 }
 
 #variations-value::-webkit-outer-spin-button,
-#variations-value::-webkit-inner-spin-button {
+#variations-value::-webkit-inner-spin-button,
+#grid-rows::-webkit-outer-spin-button,
+#grid-rows::-webkit-inner-spin-button,
+#grid-cols::-webkit-outer-spin-button,
+#grid-cols::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -1270,7 +1278,7 @@ sp-body {
   width: 100%;
 }
 
-.chat-input-wrapper sp-textarea {
+.chat-input-wrapper textarea {
   flex: 1;
   /* Take remaining space */
   font-size: 13px;
@@ -1278,6 +1286,13 @@ sp-body {
   min-height: 40px;
   max-height: 120px;
   overflow-y: auto;
+  color: var(--uxp-host-text-color, #eaeaea);
+  font-family: "Adobe Clean", sans-serif;
+  line-height: 1.4;
+}
+
+.chat-input-wrapper textarea:focus {
+  outline: none;
 }
 
 #chat-attach-btn {
@@ -1412,4 +1427,31 @@ sp-body {
 .msg-action-btn svg {
   width: 12px;
   height: 12px;
+}
+
+/* Grid Edition Banner */
+.info-banner {
+  background-color: rgba(2, 101, 220, 0.1);
+  /* Low opacity blue */
+  border: 1px solid #0265DC;
+  /* Blue border */
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.info-icon {
+  color: #5CA5FF;
+  /* Lighter blue for icon */
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.info-text {
+  font-size: 11px;
+  color: var(--uxp-host-text-color, #eaeaea);
+  line-height: 1.4;
+  opacity: 0.9;
 }

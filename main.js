@@ -72,16 +72,33 @@ async function initializeModels() {
     }
 
     // Populate Refine Menu (Text Models)
-    initializeRefineMenu();
+    // Main Tab
+    initRefineControl(
+        'refine-prompt-picker',
+        'refine-bg-menu',
+        'refine-model-name-display',
+        'btn-refine-prompt',
+        'prompt-input',
+        'nanobanana_refineModel'
+    );
+
+    // Grid Tab
+    initRefineControl(
+        'refine-prompt-picker-grid',
+        'refine-bg-menu-grid',
+        'refine-model-name-display-grid',
+        'btn-refine-prompt-grid',
+        'grid-prompt-input',
+        'nanobanana_refineModel_grid'
+    );
 
     // Sync Chat Models
     populateChatModels();
 }
 
-function initializeRefineMenu() {
-    const refinePicker = document.getElementById('refine-prompt-picker');
-    const refineMenu = document.getElementById('refine-bg-menu');
-
+function initRefineControl(pickerId, menuId, displayId, btnId, promptInputId, storageKey) {
+    const refinePicker = document.getElementById(pickerId);
+    const refineMenu = document.getElementById(menuId);
     if (!refinePicker || !refineMenu) return;
 
     refineMenu.innerHTML = '';
@@ -92,7 +109,7 @@ function initializeRefineMenu() {
         textModels["Gemini 1.5 Flash"] = "models/gemini-1.5-flash";
     }
 
-    const savedRefineModel = localStorage.getItem('nanobanana_refineModel');
+    const savedRefineModel = localStorage.getItem(storageKey);
 
     Object.keys(textModels).forEach((name, index) => {
         const item = document.createElement('sp-menu-item');
@@ -106,13 +123,23 @@ function initializeRefineMenu() {
             item.selected = true;
         }
 
-        // No click listener, we use picker change event
         refineMenu.appendChild(item);
     });
 
+    const nameDisplay = document.getElementById(displayId);
+    const updateName = () => {
+        if (refinePicker.value && nameDisplay) {
+            let display = refinePicker.value.replace('models/', '');
+            if (display.includes('Gemini 3 Pro')) display = 'Gemini 3 Pro';
+            else if (display.includes('1.5 Pro')) display = '1.5 Pro';
+            else if (display.includes('1.5 Flash')) display = '1.5 Flash';
+            nameDisplay.textContent = display;
+        }
+    };
+
     // Add Change Listener for Persistence and Sync
     refinePicker.addEventListener('change', (e) => {
-        localStorage.setItem('nanobanana_refineModel', e.target.value);
+        localStorage.setItem(storageKey, e.target.value);
         updateName();
     });
 
@@ -121,40 +148,112 @@ function initializeRefineMenu() {
         refinePicker.value = savedRefineModel;
     }
 
-    // Handle Button Click (not picker change)
-    const refineButton = document.getElementById('btn-refine-prompt');
+    // Handle Button Click
+    const refineButton = document.getElementById(btnId);
     if (refineButton) {
-        refineButton.addEventListener('click', async () => {
+        // Remove old listeners? No easy way, but this init runs ideally once or cleans up. 
+        // We'll rely on it running once per load or simple replace.
+        // Actually, replacing innerHTML of container usually kills listeners, but here we replace elements?
+        // Let's assume this is safe or use a flag.
+        // Or simpler: cloneNode to strip old listeners
+        // const newBtn = refineButton.cloneNode(true); 
+        // refineButton.parentNode.replaceChild(newBtn, refineButton);
+        // let's stick to standard add, assuming init runs once on load.
+
+        refineButton.onclick = async () => { // Use onclick property to overwrite previous if re-init
             const selectedModel = refinePicker.value;
+            // We need to pass the promptInput element ID effectively
             if (selectedModel) {
-                await handleRefinePrompt(selectedModel, refineButton);
+                await handleRefinePromptGeneric(selectedModel, refineButton, promptInputId);
             } else {
                 await core.showAlert("Please select a model from the dropdown first.");
             }
-        });
+        };
     }
 
-    // Sync Text Display
-    const nameDisplay = document.getElementById('refine-model-name-display');
-    const updateName = () => {
-        if (refinePicker.value && nameDisplay) {
-            // Remove 'Gemini' prefix for brevity if desired, or keep full name
-            // User requested "write the model name", so keeping it roughly as is but maybe compact
-            let display = refinePicker.value.replace('models/', '');
-            if (display.includes('Gemini 3 Pro')) display = 'Gemini 3 Pro';
-            else if (display.includes('1.5 Pro')) display = '1.5 Pro';
-            else if (display.includes('1.5 Flash')) display = '1.5 Flash';
-            // Fallback
-            nameDisplay.textContent = display;
-        }
-    };
-
-
-
-    // refinePicker.addEventListener('change', updateName); // Moved inside initializeRefineMenu to group with persistence logic
-    // Initial update
-    setTimeout(updateName, 100); // Small delay to ensure items populated
+    // Initial Update
+    setTimeout(updateName, 100);
 }
+
+// Updated Generic Refine Handler
+async function handleRefinePromptGeneric(modelName, buttonElement, promptInputId) {
+    const promptInput = document.getElementById(promptInputId);
+    if (!promptInput) return;
+
+    const originalPrompt = promptInput.value;
+    if (!originalPrompt.trim()) {
+        await core.showAlert("Please enter a prompt to refine.");
+        return;
+    }
+
+    const originalButtonContent = buttonElement.innerHTML;
+    buttonElement.innerHTML = '';
+    const refineSpan = document.createElement('span');
+    refineSpan.className = 'btn-text';
+    refineSpan.style.fontSize = '14px';
+    refineSpan.textContent = 'Refining...';
+
+    const refineSpinner = document.createElement('sp-progress-circle');
+    refineSpinner.setAttribute('size', 's');
+    refineSpinner.setAttribute('indeterminate', '');
+    refineSpinner.style.width = '12px';
+    refineSpinner.style.height = '12px';
+    refineSpinner.style.marginLeft = '6px';
+
+    buttonElement.appendChild(refineSpan);
+    buttonElement.appendChild(refineSpinner);
+    const pointerEventsOriginal = buttonElement.style.pointerEvents;
+    buttonElement.style.pointerEvents = 'none';
+
+    try {
+        const apiKey = await getApiKey();
+        if (!apiKey) throw new Error("Accès refusé. Veuillez configurer votre clé API.");
+
+        // Capture selection image if available
+        let selectionBlob = null;
+        try {
+            selectionBlob = await core.executeAsModal(
+                captureSelectionForRefine,
+                { commandName: "Capturing Selection..." }
+            );
+        } catch (e) {
+            console.warn("No selection available for refine:", e);
+        }
+
+        const systemPrompt = `Refine this prompt into a single, highly detailed image generation prompt. Do not ask questions or provide alternatives. Focus on visual details, atmosphere, lighting, color palette, and composition. Output ONLY the refined prompt, nothing else.
+
+Original prompt: ${originalPrompt}`;
+
+        const result = await generateImageGoogle(apiKey, modelName, systemPrompt, {
+            num_images: 1,
+            input_image_blob: selectionBlob
+        });
+
+        let refinedText = "";
+        if (typeof result === 'string') {
+            refinedText = result;
+        } else if (result && result.type === 'text') {
+            refinedText = result.data;
+        } else if (Array.isArray(result) && typeof result[0] === 'string' && !result[0].startsWith('iVBOR')) {
+            refinedText = result[0];
+        } else {
+            console.warn("Unexpected result format from refinement:", result);
+            throw new Error("Le modèle n'a pas renvoyé de texte valide.");
+        }
+
+        if (refinedText) {
+            promptInput.value = refinedText;
+        }
+
+    } catch (e) {
+        console.error("Refinement failed:", e);
+        await core.showAlert("Refinement failed: " + e.message);
+    } finally {
+        buttonElement.innerHTML = originalButtonContent;
+        buttonElement.style.pointerEvents = pointerEventsOriginal || 'auto';
+    }
+}
+
 
 // Helper function to capture selection for refinement (modal)
 async function captureSelectionForRefine(executionContext) {
@@ -365,7 +464,8 @@ async function getImageDataFromBase64(base64Data, sourceBounds) {
         const arrayBuffer = base64ToArrayBuffer(base64Data);
 
         const tempFolder = await storage.localFileSystem.getTemporaryFolder();
-        tempFile = await tempFolder.createFile("tempImage.png", { overwrite: true });
+        const uniqueFileName = `tempImage_${Date.now()}_${Math.floor(Math.random() * 1000)}.png`;
+        tempFile = await tempFolder.createFile(uniqueFileName, { overwrite: true });
 
         await tempFile.write(arrayBuffer, { format: storage.formats.binary });
 
@@ -540,6 +640,38 @@ if (btnAddSelection) {
     });
 }
 
+    });
+}
+
+
+// --- DEBUG LOGGING HELPER ---
+async function saveDebugBlob(blob, namePrefix) {
+    try {
+        const fs = require('uxp').storage.localFileSystem;
+        const dataFolder = await fs.getDataFolder();
+
+        // Ensure debug_logs folder exists
+        let logFolder;
+        try {
+            logFolder = await dataFolder.getEntry("debug_logs");
+        } catch (e) {
+            logFolder = await dataFolder.createEntry("debug_logs", { type: "folder" });
+        }
+
+        const filename = `${namePrefix}_${Date.now()}.jpg`;
+        const file = await logFolder.createEntry(filename, { overwrite: true });
+
+        const buffer = await blob.arrayBuffer();
+        await file.write(buffer, { format: require('uxp').storage.formats.binary });
+
+        console.log(`[DEBUG] Saved ${filename} to ${file.nativePath}`);
+        return file.nativePath; // Return path for potential alert
+    } catch (e) {
+        console.error("Failed to save debug blob:", e);
+    }
+}
+
+
 async function pasteBackImages(base64Images, sourceBounds, channelName) {
     const { batchPlay } = require('photoshop').action;
 
@@ -610,6 +742,204 @@ async function pasteBackImages(base64Images, sourceBounds, channelName) {
             console.warn("Masking/Selection restoration failed:", e);
         }
     }
+}
+
+// Helper to capture global context (Whole Image / Gen Fill)
+async function captureGlobalContext(executionContext, useLayerOnly, mode, selectionBounds) {
+    const { batchPlay } = require('photoshop').action;
+    const results = [];
+
+    // Store initial state
+    const initialHistoryState = app.activeDocument.activeHistoryState;
+
+    // Helper: Deselect
+    const deselect = async () => {
+        await batchPlay([{ _obj: "set", _target: { _ref: "selection" }, to: { _enum: "ordinal", _value: "none" } }], {});
+    };
+
+    // Helper: Reselect (using saved channel or passed bounds? Bounds isn't enough for complex selection. Saving selection channel is safest if we didn't rely on history)
+    // Actually, we can use history to pop back for the second phase, but we are inside one "try/finally" block that restores history at the very end.
+    // So we need to manually manage selection state during the flow.
+
+    // Strategy:
+    // 1. Save Selection to Temp Channel (if exists)
+    // 2. Deselect
+    // 3. Capture Global
+    // 4. Reload Selection (if Gen Fill needs it)
+
+    const selectionChannelName = "NanoBanana_Temp_Sel_" + Date.now();
+    let hasSelection = false;
+
+    // 1. Robustly Save Selection (if exists)
+    try {
+        await batchPlay([
+            {
+                _obj: "duplicate",
+                _target: [{ _ref: "channel", _enum: "channel", _value: "selection" }],
+                name: selectionChannelName
+            }
+        ], {});
+        hasSelection = true;
+    } catch (e) {
+        // failed to duplicate = no selection active
+        hasSelection = false;
+    }
+
+    // 2. Force Select All to ensure we capture the WHOLE CANVAS/IMAGE
+    // This guarantees the context image is the full frame, different from a partial selection.
+    await batchPlay([
+        {
+            _obj: "set",
+            _target: { _ref: "selection" },
+            to: { _enum: "ordinal", _value: "all" }
+        }
+    ], {});
+
+    try {
+        // copyMerged or copy Layers
+        const copyCommand = useLayerOnly ? "copy" : "copyMerged";
+
+        // Create a temp layer with the content
+        await batchPlay([
+            { _obj: copyCommand },
+            { _obj: "paste" }
+        ], {});
+        const contentLayer = app.activeDocument.activeLayers[0];
+
+        // CHECK: Ensure we actually captured something
+        const b = contentLayer.bounds;
+        if (b && (b.right - b.left <= 0 || b.bottom - b.top <= 0)) {
+            throw new Error("Captured context image is empty.");
+        }
+
+        // --- Restore Selection State for Next Steps ---
+        if (hasSelection) {
+            // Restore original selection
+            await batchPlay([
+                {
+                    _obj: "set",
+                    _target: { _ref: "selection" },
+                    to: { _ref: "channel", _name: selectionChannelName }
+                }
+            ], {});
+        } else {
+            // We did Select All, but had nothing before. ensuring we return to "nothing" (though logic below might need selection)
+            // Wait, if mode is 'gen-fill', we depend on selection.
+            // If hasSelection is false, gen-fill mode effectively has no target.
+            // But we'll stick to the flow.
+            // For now, if no selection originally, we deselect.
+            if (mode !== 'gen-fill') {
+                await batchPlay([{ _obj: "set", _target: { _ref: "selection" }, to: { _enum: "ordinal", _value: "none" } }], {});
+            }
+            // If mode IS gen-fill but hasSelection=false, we have a problem (User selected nothing).
+            // But main.js usually checks for selection before calling this? 
+            // prompt-submit has validation.
+        }
+
+        // If Gen Fill: We need to modify this content layer to include the red hole
+        if (mode === 'gen-fill' && hasSelection) {
+            // (Selection already restored above)
+
+            // Set Color to Red
+            await batchPlay([{
+                _obj: "set",
+                _target: { _ref: "color", _property: "foregroundColor" },
+                to: { _obj: "RGBColor", red: 255.0, green: 0.0, blue: 0.0 }
+            }], {});
+
+            // Action: Fill with Foreground
+            await batchPlay([{
+                _obj: "fill",
+                using: { _enum: "fillContents", _value: "foregroundColor" },
+                opacity: { _unit: "percentUnit", _value: 100.0 },
+                mode: { _enum: "blendMode", _value: "normal" }
+            }], {});
+        }
+
+        // Capture Pixel Data of the Resulting Layer (The Context)
+        const pixels = await imaging.getPixels({
+            layerID: app.activeDocument.activeLayers[0].id,
+            applyAlpha: true
+        });
+
+        const encodedImage = await imaging.encodeImageData({ "imageData": pixels.imageData });
+        const globalBlob = new Blob([Uint8Array.from(encodedImage)], { type: 'image/jpeg' });
+        pixels.imageData.dispose();
+
+        results.push(globalBlob);
+
+
+        // 2. If Gen Fill: Capture the Red Mask (Selection Only)
+        if (mode === 'gen-fill' && hasSelection) {
+
+            // Ensure selection is active
+            await batchPlay([
+                {
+                    _obj: "set",
+                    _target: { _ref: "selection" },
+                    to: { _ref: "channel", _name: selectionChannelName }
+                }
+            ], {});
+
+            // Create new Transparent Pixel Layer
+            await batchPlay([{ _obj: "make", _target: [{ _ref: "layer" }] }], {});
+            const redLayer = app.activeDocument.activeLayers[0];
+
+            // Fill with Red (Foreground is already red from step above, but safe to assume/set if needed)
+            await batchPlay([{
+                _obj: "fill",
+                using: { _enum: "fillContents", _value: "foregroundColor" },
+                opacity: { _unit: "percentUnit", _value: 100.0 },
+                mode: { _enum: "blendMode", _value: "normal" }
+            }], {});
+
+            // 2b. Capture Red Pixels
+
+            // Check bounds
+            const rb = redLayer.bounds;
+
+            if (rb && (rb.right - rb.left <= 0 || rb.bottom - rb.top <= 0)) {
+                console.warn("Red Mask Layer is empty (empty selection?). Skipping Red Mask.");
+            } else {
+                let redPixels;
+                try {
+                    redPixels = await imaging.getPixels({
+                        layerID: redLayer.id,
+                        applyAlpha: true,
+                        sourceBounds: selectionBounds
+                    });
+                } catch (pxErr) {
+                    console.warn("getPixels with bounds failed (" + pxErr.message + "). Trying full layer capture.");
+                    if (rb && (rb.right - rb.left > 0 && rb.bottom - rb.top > 0)) {
+                        try {
+                            redPixels = await imaging.getPixels({
+                                layerID: redLayer.id,
+                                applyAlpha: true
+                            });
+                        } catch (pxErr2) {
+                            console.error("Fallback Red Mask capture failed:", pxErr2);
+                        }
+                    }
+                }
+
+                if (redPixels) {
+                    const encodedRed = await imaging.encodeImageData({ "imageData": redPixels.imageData });
+                    const redBlob = new Blob([Uint8Array.from(encodedRed)], { type: 'image/jpeg' });
+                    redPixels.imageData.dispose();
+                    results.push(redBlob);
+                }
+            }
+        }
+
+    } catch (e) {
+        console.error("Global Context Capture Failed:", e);
+        throw e;
+    } finally {
+        // Restore State (Delete temp layers, restore selection)
+        app.activeDocument.activeHistoryState = initialHistoryState;
+    }
+
+    return results;
 }
 
 // 1. Capture Context (Modal)
@@ -697,6 +1027,8 @@ async function captureContext(executionContext, upscaleFactor = 1, useLayerOnly 
         const encodedImage = await imaging.encodeImageData({ "imageData": finalImageData });
         const uint8 = Uint8Array.from(encodedImage);
         const imageBlob = new Blob([uint8], { type: 'image/jpeg' });
+
+        await saveDebugBlob(imageBlob, "Main_Input_Selection"); // LOGGING
 
         return {
             apiKey,
@@ -796,11 +1128,80 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
 
         // B. Capture Context from Photoshop (Blocking)
         let contextData;
+
+        // --- NEW: Capture Global Context if requested ---
+        let globalContextBlobs = [];
+        const useWholeImage = document.getElementById('use-whole-image')?.checked === true;
+        const wholeImageMode = document.getElementById('whole-image-mode')?.selected || 'inpainting';
+
+        if (useWholeImage) {
+            try {
+                // We need selection bounds first? 
+                // captureGlobalContext needs bounds for 'gen-fill' mode to crop the Red Mask properly.
+                // But we don't have them yet. captureContext gets them.
+                // Let's get them quickly first or refactor captureGlobalContext to get them?
+                // Actually, captureContext does a getSelection call.
+                // Let's do a quick getSelection just to get bounds if needed, or let captureGlobalContext do it?
+                // The current implementation of captureGlobalContext expects 'selectionBounds' passed in.
+                // Let's modify captureGlobalContext to fetch selection if bounds are missing?
+                // Or just do a lightweight getSelection here.
+
+                // Better approach: Let's do it inside the modal?
+                // We'll wrap both captures in ONE modal or sequential modals?
+                // Sequential is safer for history restoration.
+
+                // We need bounds for Gen Fill.
+                let preBounds = null;
+                if (wholeImageMode === 'gen-fill') {
+                    // Small overhead to get bounds
+                    await core.executeAsModal(async () => {
+                        const s = await imaging.getSelection({});
+                        if (s) {
+                            preBounds = s.sourceBounds;
+                            s.imageData.dispose();
+                        }
+                    }, { commandName: "Getting Selection Info" });
+                }
+
+                const globalResults = await core.executeAsModal(
+                    (executionContext) => captureGlobalContext(executionContext, useLayerOnly, wholeImageMode, preBounds),
+                    { commandName: "Capturing Whole Image Reference..." }
+                );
+
+                if (globalResults && globalResults.length) {
+                    if (wholeImageMode === 'gen-fill' && globalResults.length >= 2) {
+                        // Special Handling for Gen Fill:
+                        // 1. Context Blob (Whole Image with Red Hole) -> Add to references
+                        globalContextBlobs = [globalResults[0]];
+
+                        // 2. Red Mask (Cropped Red Square) -> BECOMES the main input image (replacing the selection pixels)
+                        // We will swap it AFTER captureContext runs (since captureContext initializes contextData).
+                        // Store it temporarily.
+                        var redMaskBlob = globalResults[1];
+                    } else {
+                        // Standard Handling: All results are references
+                        globalContextBlobs = globalResults;
+                    }
+                }
+            } catch (e) {
+                console.error("Global Context Capture failed:", e);
+                await core.showAlert("Failed to capture Whole Image Context: " + e.message);
+                return; // Stop execution
+            }
+        }
+
         try {
             contextData = await core.executeAsModal(
                 (executionContext) => captureContext(executionContext, upscaleFactor, useLayerOnly),
                 { commandName: "Preparing Generation..." }
             );
+
+            // --- SWAP for Gen Fill ---
+            if (typeof redMaskBlob !== 'undefined' && contextData) {
+                console.log("Swapping selection pixels with Red Mask for Generative Fill.");
+                contextData.imageBlob = redMaskBlob;
+            }
+
         } catch (e) {
             const errStr = e.message || String(e);
             if (errStr.includes('select an area')) {
@@ -885,7 +1286,7 @@ document.getElementById('prompt-submit').addEventListener('click', async (event)
         const options = {
             num_images: numImages,
             input_image_blob: contextData.imageBlob,
-            input_images: referenceBlobs,
+            input_images: (referenceBlobs || []).concat(globalContextBlobs), // Merge user files + global context
             onProgress: onProgress
         };
 
@@ -972,126 +1373,139 @@ async function initHistoryUI() {
 }
 
 function renderHistoryList() {
-    const list = document.getElementById('history-list');
-    if (!list) return;
+    // Render to BOTH Main and Grid lists
+    const containers = ['history-list', 'grid-history-list'];
 
-    const items = historyManager.getAll();
-    // Clear list safely
-    while (list.firstChild) {
-        list.removeChild(list.firstChild);
-    }
+    containers.forEach(containerId => {
+        const list = document.getElementById(containerId);
+        if (!list) return;
 
-    if (items.length === 0) {
-        const emptyState = document.createElement('div');
-        emptyState.className = 'history-empty-state';
-        emptyState.textContent = 'No history yet.';
-        list.appendChild(emptyState);
-        return;
-    }
-
-    items.forEach(item => {
-        // Wrapper
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'history-item';
-
-        // Header (Prompt)
-        const headerDiv = document.createElement('div');
-        headerDiv.className = 'history-header';
-
-        const promptDiv = document.createElement('div');
-        promptDiv.className = 'history-prompt';
-        const promptText = item.rawPrompt || item.prompt;
-        promptDiv.title = promptText;
-        promptDiv.textContent = promptText;
-
-        headerDiv.appendChild(promptDiv);
-        itemDiv.appendChild(headerDiv);
-
-        // Metadata Tags
-        const metaDiv = document.createElement('div');
-        metaDiv.className = 'history-meta';
-
-        // Helper to create tag
-        const createTag = (text) => {
-            const span = document.createElement('span');
-            span.className = 'history-tag';
-            span.textContent = text;
-            return span;
-        };
-
-        // Model Tag
-        if (item.model) {
-            metaDiv.appendChild(createTag(item.model.replace('models/', '')));
+        const items = historyManager.getAll();
+        // Clear list safely
+        while (list.firstChild) {
+            list.removeChild(list.firstChild);
         }
 
-        // Variations Tag
-        metaDiv.appendChild(createTag(`x${item.variations}`));
-
-        // Upscale Tag
-        if (item.upscale > 1) {
-            metaDiv.appendChild(createTag(`Upscale x${item.upscale}`));
+        if (items.length === 0) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'history-empty-state';
+            emptyState.textContent = 'No history yet.';
+            list.appendChild(emptyState);
+            return;
         }
 
-        // Preset Tags
-        if (item.presets && item.presets.length > 0) {
-            item.presets.forEach(p => {
-                metaDiv.appendChild(createTag(p.name));
+        items.forEach(item => {
+            // Wrapper
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'history-item';
+
+            // Header (Prompt)
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'history-header';
+
+            const promptDiv = document.createElement('div');
+            promptDiv.className = 'history-prompt';
+            const promptText = item.rawPrompt || item.prompt;
+            promptDiv.title = promptText;
+            promptDiv.textContent = promptText;
+
+            headerDiv.appendChild(promptDiv);
+            itemDiv.appendChild(headerDiv);
+
+            // Metadata Tags
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'history-meta';
+
+            // Helper to create tag
+            const createTag = (text) => {
+                const span = document.createElement('span');
+                span.className = 'history-tag';
+                span.textContent = text;
+                return span;
+            };
+
+            if (item.model) {
+                metaDiv.appendChild(createTag(item.model.replace('models/', '')));
+            }
+
+            // GRID Tag
+            if (item.source === 'GRID') {
+                const gTag = createTag('GRID');
+                gTag.style.backgroundColor = '#0265DC'; // Distinct Blue
+                gTag.style.color = '#fff';
+                gTag.title = item.gridSize ? `Grid: ${item.gridSize}` : 'Grid Mode';
+                metaDiv.appendChild(gTag);
+            }
+
+            // Variations Tag
+            metaDiv.appendChild(createTag(`x${item.variations}`));
+
+            // Upscale Tag
+            if (item.upscale > 1) {
+                metaDiv.appendChild(createTag(`Upscale x${item.upscale}`));
+            }
+
+            // Preset Tags
+            if (item.presets && item.presets.length > 0) {
+                item.presets.forEach(p => {
+                    metaDiv.appendChild(createTag(p.name));
+                });
+            }
+
+            // Time Tag
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'history-time';
+            const date = new Date(item.timestamp);
+            timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            metaDiv.appendChild(timeSpan);
+
+            itemDiv.appendChild(metaDiv);
+
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'history-actions';
+
+            // Use This Button
+            const useBtn = document.createElement('sp-button');
+            useBtn.setAttribute('size', 's');
+            useBtn.setAttribute('variant', 'secondary');
+            useBtn.className = 'btn-history-use';
+            useBtn.textContent = 'Use This';
+            useBtn.addEventListener('click', () => {
+                restoreHistoryItem(item.id);
             });
-        }
+            actionsDiv.appendChild(useBtn);
 
-        // Time Tag
-        const timeSpan = document.createElement('span');
-        timeSpan.className = 'history-time';
-        const date = new Date(item.timestamp);
-        timeSpan.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        metaDiv.appendChild(timeSpan);
+            // Delete Button
+            const delBtn = document.createElement('sp-action-button');
+            delBtn.setAttribute('quiet', '');
+            delBtn.setAttribute('size', 's');
+            delBtn.className = 'btn-history-delete';
+            delBtn.setAttribute('title', 'Delete');
 
-        itemDiv.appendChild(metaDiv);
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('slot', 'icon');
+            svg.setAttribute('viewBox', '0 0 18 18');
+            svg.setAttribute('width', '12');
+            svg.setAttribute('height', '12');
 
-        // Actions
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'history-actions';
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z');
+            path.setAttribute('fill', 'currentColor');
 
-        // Use This Button
-        const useBtn = document.createElement('sp-button');
-        useBtn.setAttribute('size', 's');
-        useBtn.setAttribute('variant', 'secondary');
-        useBtn.className = 'btn-history-use';
-        useBtn.textContent = 'Use This';
-        useBtn.addEventListener('click', () => {
-            restoreHistoryItem(item.id);
+            svg.appendChild(path);
+            delBtn.appendChild(svg);
+
+            delBtn.addEventListener('click', () => {
+                historyManager.delete(item.id);
+                renderHistoryList();
+            });
+
+            actionsDiv.appendChild(delBtn);
+            itemDiv.appendChild(actionsDiv);
+
+            list.appendChild(itemDiv);
         });
-        actionsDiv.appendChild(useBtn);
-
-        // Delete Button
-        const delBtn = document.createElement('sp-action-button');
-        delBtn.setAttribute('quiet', '');
-        delBtn.setAttribute('size', 's');
-        delBtn.className = 'btn-history-delete';
-        delBtn.setAttribute('title', 'Delete');
-
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('slot', 'icon');
-        svg.setAttribute('viewBox', '0 0 18 18');
-        svg.setAttribute('width', '12');
-        svg.setAttribute('height', '12');
-
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', 'M15,3h-3.5c-0.3-1.7-1.7-3-3.5-3S4.8,1.3,4.5,3H1v2h2l1.1,11.2c0.1,1,1,1.8,2,1.8h5.9c1,0,1.9-0.8,2-1.8L15,5h2V3z M8,1c1.1,0,2,0.9,2,2H6C6,1.9,6.9,1,8,1z');
-        path.setAttribute('fill', 'currentColor');
-
-        svg.appendChild(path);
-        delBtn.appendChild(svg);
-
-        delBtn.addEventListener('click', () => {
-            historyManager.delete(item.id);
-            renderHistoryList();
-        });
-
-        actionsDiv.appendChild(delBtn);
-        itemDiv.appendChild(actionsDiv);
-
-        list.appendChild(itemDiv);
     });
 }
 
@@ -1099,85 +1513,86 @@ function restoreHistoryItem(id) {
     const item = historyManager.getAll().find(i => i.id === id);
     if (!item) return;
 
-    // 1. Restore Inputs
-    const promptInput = document.getElementById('prompt-input');
-    if (promptInput) promptInput.value = item.rawPrompt || item.prompt || "";
+    // --- Smart Redirect Logic ---
+    const isGrid = item.source === 'GRID';
+
+    const { switchView } = require('./chat.js'); // Assuming switchView is exported or available globally? 
+    // It's in chat.js but exposed to global scope? No, it's inside chat.js.
+    // Actually, chat.js is imported in main.js but 'switchView' is likely just a global function or we can trigger the click on the tab.
+
+    // Tab Switching via UI click to ensure clean state
+    if (isGrid) {
+        const gridTab = document.querySelector('.tab-item[data-target="grid-view"]');
+        if (gridTab) gridTab.click();
+    } else {
+        const genTab = document.querySelector('.tab-item[data-target="generator-view"]');
+        if (genTab) genTab.click();
+    }
 
     const modelSelect = document.getElementById('model-select');
     if (modelSelect) modelSelect.value = item.model;
-
-    // Update Picker if needed (spectrum sync)
     const picker = document.getElementById('model-select-picker');
     if (picker) picker.value = item.model;
 
-    const varInput = document.getElementById('variations-value');
-    if (varInput) varInput.value = item.variations;
+    if (isGrid) {
+        // --- Restore Grid Inputs ---
+        const gridPrompt = document.getElementById('grid-prompt-input');
+        if (gridPrompt) gridPrompt.value = item.rawPrompt || item.prompt || "";
 
-    const upscaleInput = document.getElementById('upscale-value');
-    if (upscaleInput) upscaleInput.value = item.upscale;
+        // Parse "2x2" string
+        if (item.gridSize && item.gridSize.includes('x')) {
+            const [r, c] = item.gridSize.split('x');
+            const rInput = document.getElementById('grid-rows');
+            const cInput = document.getElementById('grid-cols');
+            if (rInput) rInput.value = r;
+            if (cInput) cInput.value = c;
+        }
 
-    const fgCheck = document.getElementById('use-foreground');
-    if (fgCheck) fgCheck.checked = !!item.useForeground;
+    } else {
+        // --- Restore Standard Inputs ---
+        const promptInput = document.getElementById('prompt-input');
+        if (promptInput) promptInput.value = item.rawPrompt || item.prompt || "";
 
-    const layerCheck = document.getElementById('use-layer-only');
-    if (layerCheck) layerCheck.checked = !!item.useLayerOnly;
+        const varInput = document.getElementById('variations-value');
+        if (varInput) varInput.value = item.variations;
 
-    const exactDimCheck = document.getElementById('use-exact-dimensions');
-    if (exactDimCheck) exactDimCheck.checked = !!item.useExactDimensions;
+        const upscaleInput = document.getElementById('upscale-value');
+        if (upscaleInput) upscaleInput.value = item.upscale;
 
-    // 2. Intelligent Preset Restoration
-    if (item.presets && item.presets.length > 0) {
-        // Deactivate all current first? Maybe cleaner.
-        presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
+        const fgCheck = document.getElementById('use-foreground');
+        if (fgCheck) fgCheck.checked = !!item.useForeground;
 
-        let missingPresets = [];
+        const layerCheck = document.getElementById('use-layer-only');
+        if (layerCheck) layerCheck.checked = !!item.useLayerOnly;
 
-        item.presets.forEach(histPreset => {
-            // Try to find by ID
-            let existing = presetManager.getAll().find(p => p.id === histPreset.id);
+        const exactDimCheck = document.getElementById('use-exact-dimensions');
+        if (exactDimCheck) exactDimCheck.checked = !!item.useExactDimensions;
 
-            if (!existing) {
-                // Try to find by Name (fuzzy match)
-                existing = presetManager.getAll().find(p => p.name === histPreset.name);
-            }
+        // Intelligent Preset Restoration (Only for Standard)
+        if (item.presets && item.presets.length > 0) {
+            presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
+            let missingPresets = [];
+            item.presets.forEach(histPreset => {
+                let existing = presetManager.getAll().find(p => p.id === histPreset.id);
+                if (!existing) existing = presetManager.getAll().find(p => p.name === histPreset.name);
 
-            if (existing) {
-                presetManager.toggleActive(existing.id, true);
-            } else {
-                // Deleted! "Intelligent behavior"
-                // Option: Append content to prompt?
-                // Option: Create temp preset? 
-                // Let's append to prompt with a note, or just append content.
-                missingPresets.push(histPreset);
-            }
-        });
+                if (existing) {
+                    presetManager.toggleActive(existing.id, true);
+                } else {
+                    missingPresets.push(histPreset);
+                }
+            });
 
-        if (missingPresets.length > 0) {
-            // Append missing preset content to prompt
-            // core.showAlert(`Restored settings. Note: ${missingPresets.length} presets were missing and have been appended to the prompt logic.`);
-            // Actually, appending to the PROMPT TEXT input is visible.
-            // Let's verify if the content is already there? No.
-
-            const appendText = missingPresets.map(p => p.content).join(' ');
-            // We don't want to permanently add it to the input if the user didn't mean to, 
-            // but for "Use This", we want to replicate the result. 
-            // So yes, adding to the prompt input is the safest way to ensure it's used if we can't restore the preset object.
-            if (promptInput) {
+            if (missingPresets.length > 0 && promptInput) {
+                const appendText = missingPresets.map(p => p.content).join(' ');
                 promptInput.value = promptInput.value + "\n[Restored Preset Content]: " + appendText;
             }
-            console.log("Restored missing presets into prompt text:", missingPresets.map(p => p.name));
+        } else {
+            presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
         }
-    } else {
-        // No presets in history, so deactivate all current
-        presetManager.getAll().forEach(p => presetManager.toggleActive(p.id, false));
+
+        renderPresetList();
     }
-
-    // Refresh Preset UI
-    renderPresetList();
-
-    // Expand relevant sections so user sees changes
-    // Expand context?
-    // Expand presets if we activated some?
 }
 
 // Helper to update Chevron Icon
@@ -1286,6 +1701,23 @@ function initMenuToggles() {
             const isHiddenNow = historyWrapper.classList.toggle('hidden');
             updateChevron(historyChevron, !isHiddenNow);
             localStorage.setItem('nanobanana_history_expanded', !isHiddenNow);
+        });
+    }
+
+    // --- History Section (Grid) ---
+    const gridHistoryHeader = document.getElementById('grid-history-header-toggle');
+    const gridHistoryWrapper = document.getElementById('grid-history-content-wrapper');
+    const gridHistoryChevron = document.getElementById('grid-history-chevron');
+
+    if (gridHistoryHeader && gridHistoryWrapper && gridHistoryChevron) {
+        const isExpanded = localStorage.getItem('nanobanana_grid_history_expanded') === 'true';
+        gridHistoryWrapper.classList.toggle('hidden', !isExpanded);
+        updateChevron(gridHistoryChevron, isExpanded);
+
+        gridHistoryHeader.addEventListener('click', () => {
+            const isHiddenNow = gridHistoryWrapper.classList.toggle('hidden');
+            updateChevron(gridHistoryChevron, !isHiddenNow);
+            localStorage.setItem('nanobanana_grid_history_expanded', !isHiddenNow);
         });
     }
 }
@@ -1501,6 +1933,44 @@ function initPersistentUISettings() {
         });
     }
 
+    // --- Whole Image Settings ---
+    const useWholeImageCb = document.getElementById('use-whole-image');
+    const wholeImageOptions = document.getElementById('whole-image-options');
+    const wholeImageModeGroup = document.getElementById('whole-image-mode');
+
+    // Helper to toggle visibility
+    const toggleWholeImageOptions = (isChecked) => {
+        if (wholeImageOptions) {
+            wholeImageOptions.classList.toggle('hidden', !isChecked);
+        }
+    };
+
+    if (useWholeImageCb) {
+        const savedWholeImage = localStorage.getItem('nanobanana_useWholeImage');
+        if (savedWholeImage !== null) {
+            const isChecked = savedWholeImage === 'true';
+            useWholeImageCb.checked = isChecked;
+            toggleWholeImageOptions(isChecked);
+        }
+
+        useWholeImageCb.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            localStorage.setItem('nanobanana_useWholeImage', isChecked);
+            toggleWholeImageOptions(isChecked);
+        });
+    }
+
+    if (wholeImageModeGroup) {
+        const savedMode = localStorage.getItem('nanobanana_wholeImageMode');
+        if (savedMode) {
+            wholeImageModeGroup.selected = savedMode;
+        }
+
+        wholeImageModeGroup.addEventListener('change', (e) => {
+            localStorage.setItem('nanobanana_wholeImageMode', e.target.value);
+        });
+    }
+
     // --- Variations Count ---
     const variationsInput = document.getElementById('variations-value');
     if (variationsInput) {
@@ -1547,6 +2017,32 @@ function initPersistentUISettings() {
             }
         });
     }
+
+    // --- Grid Edition Persistence ---
+    const gridRows = document.getElementById('grid-rows');
+    const gridCols = document.getElementById('grid-cols');
+    const gridPrompt = document.getElementById('grid-prompt-input');
+
+    if (gridRows) {
+        const savedRows = localStorage.getItem('nanobanana_gridRows');
+        if (savedRows) gridRows.value = savedRows;
+        gridRows.addEventListener('input', (e) => localStorage.setItem('nanobanana_gridRows', e.target.value));
+        gridRows.addEventListener('change', (e) => localStorage.setItem('nanobanana_gridRows', e.target.value));
+    }
+
+    if (gridCols) {
+        const savedCols = localStorage.getItem('nanobanana_gridCols');
+        if (savedCols) gridCols.value = savedCols;
+        gridCols.addEventListener('input', (e) => localStorage.setItem('nanobanana_gridCols', e.target.value));
+        gridCols.addEventListener('change', (e) => localStorage.setItem('nanobanana_gridCols', e.target.value));
+    }
+
+    if (gridPrompt) {
+        const savedGridPrompt = localStorage.getItem('nanobanana_gridPrompt');
+        if (savedGridPrompt) gridPrompt.value = savedGridPrompt;
+        gridPrompt.addEventListener('input', (e) => localStorage.setItem('nanobanana_gridPrompt', e.target.value));
+        gridPrompt.addEventListener('change', (e) => localStorage.setItem('nanobanana_gridPrompt', e.target.value));
+    }
 }
 
 // -----------------------------------------------------------
@@ -1587,7 +2083,7 @@ function initSpinnerControls() {
     });
 
     // 2. Keyboard Support (Arrow Keys)
-    const inputs = document.querySelectorAll('sp-textfield[type="number"], #variations-value, #upscale-value');
+    const inputs = document.querySelectorAll('sp-textfield[type="number"], #variations-value, #upscale-value, #grid-rows, #grid-cols');
     inputs.forEach(input => {
         input.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -1600,6 +2096,8 @@ function initSpinnerControls() {
                 // Specific constraints based on ID
                 if (input.id === 'variations-value') {
                     max = 8;
+                } else if (input.id === 'grid-rows' || input.id === 'grid-cols') {
+                    max = 10;
                 } else if (input.id === 'upscale-value') {
                     step = 0.5;
                     max = 4;
@@ -1624,6 +2122,213 @@ function initSpinnerControls() {
         });
     });
 }
+
+// -----------------------------------------------------------
+// Grid Edition Logic
+// -----------------------------------------------------------
+
+document.getElementById('grid-submit')?.addEventListener('click', async () => {
+    const spinner = document.getElementById('grid-spinner');
+    const btn = document.getElementById('grid-submit');
+    const container = document.querySelector('.split-btn-container.generate-btn');
+    const { batchPlay } = require('photoshop').action; // Ensure batchPlay is available
+
+    try {
+        // 1. Gather Inputs
+        const rows = parseInt(document.getElementById('grid-rows').value || '2', 10);
+        const cols = parseInt(document.getElementById('grid-cols').value || '2', 10);
+        let prompt_text = document.getElementById('grid-prompt-input').value;
+        const modelName = document.getElementById('model-select').value;
+
+        if (!prompt_text.trim()) {
+            await core.showAlert("Please enter a prompt.");
+            return;
+        }
+
+        const useForeground = true;
+        if (useForeground) {
+            prompt_text += ' #' + app.foregroundColor.rgb.hexValue;
+        }
+
+        // 2. Get Initial Bounds (Selection or Whole Image)
+        let selectionBounds = null;
+        try {
+            await core.executeAsModal(async () => {
+                try {
+                    const s = await imaging.getSelection({});
+                    if (s && s.sourceBounds) {
+                        selectionBounds = s.sourceBounds;
+                        s.imageData.dispose();
+                    }
+                } catch (err) {
+                    // No active selection
+                }
+            }, { commandName: "Checking Selection" });
+        } catch (e) {
+            // likely no selection
+        }
+
+        // Fallback to Whole Document if no selection
+        if (!selectionBounds) {
+            selectionBounds = {
+                left: 0,
+                top: 0,
+                right: app.activeDocument.width,
+                bottom: app.activeDocument.height
+            };
+        }
+
+        // 3. UI Loading State
+        if (btn) {
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = 'Processing...';
+            if (spinner) spinner.style.display = 'inline-block';
+        }
+        if (container) container.classList.add('loading');
+
+
+        // 4. Calculate Grid Cells
+        const totalWidth = selectionBounds.right - selectionBounds.left;
+        const totalHeight = selectionBounds.bottom - selectionBounds.top;
+        const cellWidth = Math.round(totalWidth / cols);
+        const cellHeight = Math.round(totalHeight / rows);
+
+        const totalCells = rows * cols;
+        console.log(`Starting Grid Generation: ${cols}x${rows} (${totalCells} cells). Cell: ${cellWidth}x${cellHeight}`);
+
+        // 5. Processing Loop
+        let processed = 0;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                processed++;
+                if (btn) btn.querySelector('.btn-text').textContent = `Cell ${processed}/${totalCells}...`;
+
+                // Calculate Cell Geometry
+                const cellLeft = selectionBounds.left + (c * cellWidth);
+                const cellTop = selectionBounds.top + (r * cellHeight);
+                const cellRight = (c === cols - 1) ? selectionBounds.right : (cellLeft + cellWidth);
+                const cellBottom = (r === rows - 1) ? selectionBounds.bottom : (cellTop + cellHeight);
+
+                const currentCellBounds = {
+                    left: cellLeft,
+                    top: cellTop,
+                    right: cellRight,
+                    bottom: cellBottom
+                };
+
+                // A. Set Selection & Capture (Standard 'Whole Image' Context)
+                let captureData = null;
+                try {
+                    captureData = await core.executeAsModal(async (ctx) => {
+                        // 1. Set Photoshop Selection to the Cell
+                        await batchPlay([
+                            {
+                                _obj: "set",
+                                _target: [{ _ref: "channel", _property: "selection" }],
+                                to: {
+                                    _obj: "rectangle",
+                                    top: { _unit: "pixelsUnit", _value: currentCellBounds.top },
+                                    left: { _unit: "pixelsUnit", _value: currentCellBounds.left },
+                                    bottom: { _unit: "pixelsUnit", _value: currentCellBounds.bottom },
+                                    right: { _unit: "pixelsUnit", _value: currentCellBounds.right }
+                                }
+                            }
+                        ], {});
+
+                        // 2. Capture Global Context (Standard Inpainting Mode)
+                        // This uses the *active selection* (which we just set) to define the mask/hole if needed (for Gen Fill mode),
+                        // or just captures the whole image for reference.
+                        // We force 'inpainting' (Standard) mode as requested for Grid basics, but we could use 'gen-fill' if desired.
+                        // Let's use 'inpainting' for now as it's safer/simpler for tiles.
+                        // Note: captureGlobalContext takes (ctx, useLayerOnly, mode, preBounds).
+
+                        const globalContextBlobs = await captureGlobalContext(ctx, false, 'inpainting', currentCellBounds);
+
+                        // 3. Capture Local Content (The "Input Image" which is the cell content itself)
+                        // Since we have selection active, we can just grab it.
+                        const pixels = await imaging.getPixels({
+                            applyAlpha: true,
+                            // No sourceBounds needed, it respects selection by default? 
+                            // Or we can pass currentCellBounds to be explicit.
+                            sourceBounds: currentCellBounds
+                        });
+
+                        const encoded = await imaging.encodeImageData({ "imageData": pixels.imageData });
+                        const localBlob = new Blob([Uint8Array.from(encoded)], { type: 'image/jpeg' });
+                        pixels.imageData.dispose();
+
+                        return {
+                            globalContext: globalContextBlobs,
+                            localBlob: localBlob
+                        };
+
+                    }, { commandName: `Capturing Cell ${r + 1},${c + 1}` });
+                } catch (e) {
+                    console.error("Capture failed for cell", r, c, e);
+                    continue;
+                }
+
+                if (!captureData) continue;
+
+                // B. Generate (Network)
+                try {
+                    // Standard Input: Local Blob = Image to Edit, Global Context = Reference
+                    const options = {
+                        num_images: 1,
+                        input_image_blob: captureData.localBlob,
+                        input_images: captureData.globalContext,
+                    };
+
+                    const result = await generateImageGoogle(await getApiKey(), modelName, prompt_text, options);
+
+                    // C. Paste (Standard Logic)
+                    if (result) {
+                        let b64 = result;
+                        if (Array.isArray(result)) b64 = result[0];
+                        if (typeof result === 'object' && result.data) b64 = result.data;
+
+                        if (b64 && typeof b64 === 'string') {
+                            await core.executeAsModal(async (ctx) => {
+                                // Reuse standard Paste Logic
+                                // We pass the cell bounds so it knows where to put it
+                                await pasteBackImages([b64], currentCellBounds, null); // No temp channel needed since we manage selection explicitly in loop
+
+                            }, { commandName: `Pasting Cell ${r + 1},${c + 1}` });
+                        }
+                    }
+
+                } catch (e) {
+                    console.error("Paste failed for cell", r, c, e);
+                }
+            }
+        }
+
+        // 6. Record History
+        const historyManager = require('./history.js');
+        historyManager.add({
+            prompt: prompt_text,
+            model: modelName,
+            variations: 1,
+            upscale: 1,
+            useForeground: useForeground,
+            source: 'GRID',
+            gridSize: `${rows}x${cols}`
+        });
+        renderHistoryList();
+
+    } catch (e) {
+        console.error("Grid Process Error:", e);
+        await core.showAlert("Grid Process Error: " + e.message);
+    } finally {
+        if (btn) {
+            const btnText = btn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = 'Process Grid';
+            if (spinner) spinner.style.display = 'none';
+        }
+        if (container) container.classList.remove('loading');
+    }
+});
 
 window.addEventListener('DOMContentLoaded', () => {
     initializeModels();
