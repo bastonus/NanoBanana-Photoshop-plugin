@@ -116,35 +116,72 @@ function initRefineControl(pickerId, menuId, displayId, btnId, promptInputId, st
         item.textContent = name;
         item.value = textModels[name];
 
-        // Selection Logic: Saved > Default Priority > First
-        if (savedRefineModel && name === savedRefineModel) {
-            item.selected = true;
-        } else if (!savedRefineModel && (name.includes('Gemini 3 Pro') || (index === 0 && !Object.keys(textModels).some(n => n.includes('Gemini 3 Pro'))))) {
+        // Selection Logic: Check if value matches saved ID
+        if (savedRefineModel && textModels[name] === savedRefineModel) {
             item.selected = true;
         }
-
         refineMenu.appendChild(item);
     });
 
-    const nameDisplay = document.getElementById(displayId);
-    const updateName = () => {
-        if (refinePicker.value && nameDisplay) {
-            let display = refinePicker.value.replace('models/', '');
-            if (display.includes('Gemini 3 Pro')) display = 'Gemini 3 Pro';
-            else if (display.includes('1.5 Pro')) display = '1.5 Pro';
-            else if (display.includes('1.5 Flash')) display = '1.5 Flash';
-            nameDisplay.textContent = display;
+    // Dynamic Auto-Selector Logic
+    let targetValue = savedRefineModel;
+
+    // Only run if no valid selection exists/is saved
+    if (!targetValue && Object.keys(textModels).length > 0) {
+        try {
+            const models = Object.keys(textModels);
+
+            // Helper to extract version
+            const getVersion = (name) => {
+                const match = name.match(/(\d+(\.\d+)*)/);
+                return match ? parseFloat(match[0]) : -1;
+            };
+
+            const versions = [...new Set(models.map(getVersion))];
+            versions.sort((a, b) => b - a);
+
+            let bestMatchName = null;
+
+            for (const version of versions) {
+                const candidates = models.filter(m => getVersion(m) === version);
+                if (candidates.length === 0) continue;
+
+                const isPro = (m) => m.toLowerCase().includes('pro') && !m.toLowerCase().includes('preview');
+                const isProPreview = (m) => m.toLowerCase().includes('pro') && m.toLowerCase().includes('preview');
+                const isFlash = (m) => m.toLowerCase().includes('flash');
+                const isBase = (m) => !isPro(m) && !isProPreview(m) && !isFlash(m);
+
+                if (candidates.some(isPro)) bestMatchName = candidates.find(isPro);
+                else if (candidates.some(isProPreview)) bestMatchName = candidates.find(isProPreview);
+                else if (candidates.some(isBase)) bestMatchName = candidates.find(isBase);
+                else if (candidates.some(isFlash)) bestMatchName = candidates.find(isFlash);
+
+                if (bestMatchName) break;
+            }
+
+            if (!bestMatchName) bestMatchName = models[0];
+
+            if (bestMatchName) {
+                targetValue = textModels[bestMatchName];
+                // Select visually
+                const items = Array.from(refineMenu.querySelectorAll('sp-menu-item'));
+                // Match by value (ID)
+                const targetItem = items.find(el => el.value === targetValue);
+                if (targetItem) targetItem.selected = true;
+            }
+
+        } catch (err) {
+            console.warn("Auto-selector failed:", err);
+            // Fallback
+            targetValue = "models/gemini-1.5-pro-latest";
         }
-    };
+    }
 
-    // Add Change Listener for Persistence and Sync
-    refinePicker.addEventListener('change', (e) => {
-        localStorage.setItem(storageKey, e.target.value);
-        updateName();
-    });
-
-    // Ensure picker value matches saved if exists
-    if (savedRefineModel && refinePicker.value !== savedRefineModel) {
+    // Explicitly set picker value to ensure logic works
+    if (targetValue && refinePicker.value !== targetValue) {
+        refinePicker.value = targetValue;
+    } else if (savedRefineModel && refinePicker.value !== savedRefineModel) {
+        // Fallback catch for saved model if loop didn't set picker value (dependent on framework)
         refinePicker.value = savedRefineModel;
     }
 
@@ -640,8 +677,7 @@ if (btnAddSelection) {
     });
 }
 
-    });
-}
+
 
 
 // --- DEBUG LOGGING HELPER ---
